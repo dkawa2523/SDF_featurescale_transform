@@ -1,0 +1,14 @@
+# Python caches
+__pycache__/
+*.pyc
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build metadata
+wafergeo.egg-info/
+
+# Local temporary artifacts
+tmp_*/

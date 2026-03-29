@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wafergeo"
+version = "0.1.0"
+description = "Artifact-driven wafer geometry core scaffolding"
+readme = "0_design.md"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.25",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+scipy = ["scipy>=1.11"]
+itk = ["itk>=5.3"]
+cuda = ["cupy-cuda12x>=12.0"]
+vtk = ["vtk>=9.2", "pyvista>=0.42"]
+observe = ["scikit-image>=0.22"]
+sem = ["Pillow>=10.0"]
+zarr = ["zarr>=2.16"]
+parquet = ["pandas>=2.0", "pyarrow>=14.0"]
+viz = ["matplotlib>=3.8", "pandas>=2.0"]
+dev = [
+  "pytest>=8.0",
+  "mypy>=1.10",
+  "ruff>=0.4",
+]
+
+[tool.setuptools.packages.find]
+include = ["wafergeo*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["wafergeo"]
+ignore_missing_imports = true
+warn_unused_configs = true
+pretty = true
+show_error_codes = true
