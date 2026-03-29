@@ -1,5 +1,6 @@
 """Core contracts for wafergeo."""
 
+from wafergeo.core.geometry import nearest_neighbor_distances_numpy, vtk_polys_to_triangles
 from wafergeo.core.grid import AxisOrder, GridSpec, SampleLocation
 from wafergeo.core.hashing import (
     canonical_json_dumps,
@@ -46,6 +47,8 @@ __all__ = [
     "ObserverSpec",
     "Status",
     "Registry",
+    "nearest_neighbor_distances_numpy",
+    "vtk_polys_to_triangles",
     "sdf_backend_registry",
     "register_sdf_engine",
     "observer_registry",

@@ -161,6 +161,30 @@ def test_bench_outputs_exist_even_on_partial_fail(tmp_path: Path) -> None:
     assert manifest["status"] in {"WARN", "OK"}
 
 
+def test_bench_missing_real_vti_path_emits_fail_rows_and_manifest(tmp_path: Path) -> None:
+    missing_real_vti = tmp_path / "missing_real_vti.vti"
+    out_dir = tmp_path / "out"
+    spec = _base_spec(
+        scenarios=("real_vti",),
+        point_to_cell_policies=("nearest", "majority"),
+        mesh_backends=("naive_interface", "vtk"),
+        mesh_modes=("material_shell", "interface_mesh"),
+        real_vti_path=str(missing_real_vti),
+    )
+    manifest = runner.run_correspondence_benchmark(spec, out_dir)
+    saved = json.loads((out_dir / "benchmark_manifest.json").read_text())
+
+    assert (out_dir / "benchmark_manifest.json").exists()
+    assert (out_dir / "tables" / "stage_metrics.csv").exists()
+    assert (out_dir / "tables" / "summary_metrics.csv").exists()
+    assert manifest["status"] == "WARN"
+    assert saved["status"] == "WARN"
+    assert saved["messages"]
+    assert len(saved["rows"]) == 8
+    assert all(row["status"] == "FAIL" for row in saved["rows"])
+    assert all("scenario load failed for real_vti" in row["error"] for row in saved["rows"])
+
+
 def test_bench_real_vti_smoke(tmp_path: Path, monkeypatch) -> None:
     scenario_cube = load_benchmark_scenario("cube")
 

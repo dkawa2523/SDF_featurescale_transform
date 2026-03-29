@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from wafergeo.core.geometry import vtk_polys_to_triangles
 from wafergeo.mesh.config import MeshBuildConfig
 from wafergeo.mesh.errors import MeshOptionalDependencyError
 from wafergeo.mesh.extractors.base import (
@@ -68,7 +69,7 @@ def _from_vtk_polydata(poly, numpy_support) -> tuple[np.ndarray, np.ndarray]:
             np.zeros((0, 3), dtype=np.int32),
         )
     vertices = numpy_support.vtk_to_numpy(points.GetData()).astype(np.float32, copy=False)
-    faces = VTKInterfaceExtractor._vtk_polys_to_triangles(polys, numpy_support)
+    faces = vtk_polys_to_triangles(polys, numpy_support.vtk_to_numpy)
     return vertices, faces
 
 
@@ -151,28 +152,6 @@ class VTKInterfaceExtractor(MeshExtractorProtocol):
     )
 
     @staticmethod
-    def _vtk_polys_to_triangles(polys, numpy_support) -> np.ndarray:
-        connectivity = polys.GetConnectivityArray()
-        offsets = polys.GetOffsetsArray()
-        if connectivity is None or offsets is None:
-            return np.zeros((0, 3), dtype=np.int32)
-        conn = numpy_support.vtk_to_numpy(connectivity).astype(np.int64, copy=False)
-        offs = numpy_support.vtk_to_numpy(offsets).astype(np.int64, copy=False)
-        if offs.size <= 1:
-            return np.zeros((0, 3), dtype=np.int32)
-        faces: list[tuple[int, int, int]] = []
-        for start, end in zip(offs[:-1], offs[1:], strict=True):
-            ids = conn[int(start) : int(end)]
-            if ids.size < 3:
-                continue
-            base = int(ids[0])
-            for i in range(1, int(ids.size) - 1):
-                faces.append((base, int(ids[i]), int(ids[i + 1])))
-        if not faces:
-            return np.zeros((0, 3), dtype=np.int32)
-        return np.asarray(faces, dtype=np.int32)
-
-    @staticmethod
     def _extract_channel_surface(
         *,
         field_zyx: np.ndarray,
@@ -212,7 +191,7 @@ class VTKInterfaceExtractor(MeshExtractorProtocol):
             )
 
         vertices = numpy_support.vtk_to_numpy(points.GetData()).astype(np.float32, copy=False)
-        faces = VTKInterfaceExtractor._vtk_polys_to_triangles(polys, numpy_support)
+        faces = vtk_polys_to_triangles(polys, numpy_support.vtk_to_numpy)
         if faces.size == 0:
             return RawMesh(
                 vertices=np.zeros((0, 3), dtype=np.float32),

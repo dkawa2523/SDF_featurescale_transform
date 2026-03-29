@@ -35,6 +35,7 @@ def _synthetic_bundle() -> StandardVTIBundle:
         profile=get_standard_vti_profile(),
         raw=raw,
         input_hash="h",
+        read_backend_used="vtk",
         source_array="MaterialIds",
         source_location="point",
         converted_from_point=True,
@@ -79,6 +80,7 @@ def _patch_audit_success(monkeypatch, out_dir: Path) -> None:
             "mesh_mode": "material_shell",
             "mesh_backend": "vtk",
             "mesh_backend_used": "vtk",
+            "read_backend_used": "vtk",
             "flat_layout_used": "legacy_xyz_transpose",
             "mesh_faces_total": {"raw_shells": 10, "converted_shells": 12},
             "mesh_faces_plotted": {"raw_shells": 10, "converted_shells": 12},
@@ -112,6 +114,7 @@ def test_preview_standard_profile_is_fixed(tmp_path: Path, monkeypatch: pytest.M
     assert manifest["material_policy"] == "full"
     assert manifest["mesh_mode"] == "material_shell"
     assert manifest["mesh_backend_used"] == "vtk"
+    assert manifest["read_backend_used"] == "vtk"
     assert manifest["flat_layout_used"] in {"vtk_x_fastest", "legacy_xyz_transpose"}
 
 

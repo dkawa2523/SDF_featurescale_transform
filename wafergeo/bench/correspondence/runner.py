@@ -11,6 +11,7 @@ from typing import Any, cast
 import numpy as np
 
 import wafergeo
+from wafergeo._matplotlib import require_matplotlib_pyplot
 from wafergeo.bench.correspondence.generator import (
     BenchmarkScenarioData,
     as_label_volume_for_policy,
@@ -27,19 +28,6 @@ from wafergeo.sdf.build import build_tsdf_volume
 from wafergeo.sdf.config import SDFBuildConfig
 from wafergeo.sdf.errors import OptionalDependencyUnavailableError
 from wafergeo.sdf.tsdf import label_from_tsdf
-
-
-def _require_matplotlib():
-    try:
-        import matplotlib
-
-        matplotlib.use("Agg", force=True)
-        import matplotlib.pyplot as plt
-    except Exception as exc:  # pragma: no cover - env dependent
-        raise ImportError(
-            "matplotlib is required for benchmark figures. Install with: pip install -e '.[viz]'"
-        ) from exc
-    return plt
 
 
 def _spacing_origin_from_label(
@@ -99,7 +87,10 @@ def _write_summary_table(path: Path, summary: Mapping[str, object]) -> None:
 
 
 def _plot_summary_figure(path: Path, rows: list[dict[str, object]]) -> None:
-    plt = _require_matplotlib()
+    plt = require_matplotlib_pyplot(
+        context="benchmark figures",
+        install_hint="pip install -e '[viz]'",
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
 
     labels = []
@@ -342,6 +333,61 @@ def _run_single_combo(
     return row
 
 
+def _failed_combo_row(
+    *,
+    scenario_name: str,
+    policy: str,
+    mesh_backend: str,
+    mesh_mode: str,
+    error: str,
+) -> dict[str, object]:
+    return {
+        "scenario": scenario_name,
+        "policy": policy,
+        "mesh_backend": mesh_backend,
+        "mesh_backend_used": mesh_backend,
+        "mesh_mode": mesh_mode,
+        "sdf_backend_used": "unavailable",
+        "status": "FAIL",
+        "point_to_cell_match": None,
+        "flat_layout_used": "",
+        "error": error,
+        "sdf_roundtrip_acc": None,
+        "mesh_boundary_iou": None,
+        "mesh_boundary_dice": None,
+        "mesh_boundary_chamfer_nm": None,
+        "mesh_boundary_coverage": None,
+        "bbox_center_shift_nm": None,
+        "bbox_size_l2_nm": None,
+        "surface_area_rel_error": None,
+        "render_diff_rate": None,
+    }
+
+
+def _scenario_failure_rows(
+    *,
+    scenario_name: str,
+    policies: tuple[str, ...],
+    mesh_backends: tuple[str, ...],
+    mesh_modes: tuple[str, ...],
+    error: str,
+) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for policy in policies:
+        for backend in mesh_backends:
+            for mode in mesh_modes:
+                rows.append(
+                    _failed_combo_row(
+                        scenario_name=scenario_name,
+                        policy=policy,
+                        mesh_backend=backend,
+                        mesh_mode=mode,
+                        error=error,
+                    )
+                )
+    return rows
+
+
 def _row_passes_thresholds(
     row: Mapping[str, object],
     *,
@@ -533,16 +579,32 @@ def run_correspondence_benchmark(
     status = "OK"
 
     for scenario_name in spec.scenarios:
-        scenario = load_benchmark_scenario(
-            scenario_name,
-            real_vti_path=spec.real_vti_path,
-        )
-        baseline_label, _ = as_label_volume_for_policy(
-            scenario,
-            point_to_cell_policy="nearest",
-            max_materials=5,
-        )
-        fixed_selected_ids = [int(v) for v in baseline_label.material.ids]
+        try:
+            scenario = load_benchmark_scenario(
+                scenario_name,
+                real_vti_path=spec.real_vti_path,
+            )
+            baseline_label, _ = as_label_volume_for_policy(
+                scenario,
+                point_to_cell_policy="nearest",
+                max_materials=5,
+            )
+            fixed_selected_ids = [int(v) for v in baseline_label.material.ids]
+        except Exception as exc:
+            status = "WARN"
+            error = f"scenario load failed for {scenario_name}: {exc}"
+            messages.append(error)
+            rows.extend(
+                _scenario_failure_rows(
+                    scenario_name=scenario_name,
+                    policies=tuple(str(v) for v in spec.point_to_cell_policies),
+                    mesh_backends=tuple(str(v) for v in spec.mesh_backends),
+                    mesh_modes=tuple(str(v) for v in spec.mesh_modes),
+                    error=error,
+                )
+            )
+            continue
+
         for policy in spec.point_to_cell_policies:
             for backend in spec.mesh_backends:
                 for mode in spec.mesh_modes:

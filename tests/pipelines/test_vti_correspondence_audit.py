@@ -7,6 +7,7 @@ from typing import cast
 
 import numpy as np
 
+import wafergeo.io.vti_reader as vti_reader
 from wafergeo.core.hashing import hash_config
 from wafergeo.io.vti_reader import RawVtiImage
 from wafergeo.pipelines import vti_correspondence_audit as audit
@@ -60,10 +61,29 @@ def _patch_converted_identity(monkeypatch) -> None:
     )
 
 
+def _patch_read_result(
+    monkeypatch,
+    *,
+    raw: RawVtiImage | None = None,
+    backend_used: str = "vtk",
+    messages: tuple[str, ...] = (),
+) -> None:
+    result = vti_reader.VtiReadResult(
+        raw=_raw_cell_labels() if raw is None else raw,
+        backend_used=backend_used,
+        messages=messages,
+    )
+    monkeypatch.setattr(
+        vti_reader,
+        "read_vti_with_xml_fallback",
+        lambda _p: result,
+    )
+
+
 def test_audit_standard_profile_is_fixed(tmp_path: Path, monkeypatch) -> None:
     vti_path = tmp_path / "dummy.vti"
     vti_path.write_bytes(b"vti")
-    monkeypatch.setattr(audit, "read_vti", lambda _p: _raw_cell_labels())
+    _patch_read_result(monkeypatch)
     monkeypatch.setattr(audit, "_boundary_chamfer", lambda _a, _b: 0.0)
     _patch_converted_identity(monkeypatch)
     _patch_plots(monkeypatch)
@@ -75,6 +95,7 @@ def test_audit_standard_profile_is_fixed(tmp_path: Path, monkeypatch) -> None:
     assert manifest["mesh_mode"] == "material_shell"
     assert manifest["mesh_backend"] == "vtk"
     assert manifest["mesh_backend_used"] == "vtk"
+    assert manifest["read_backend_used"] == "vtk"
     assert manifest["flat_layout_used"] in {"vtk_x_fastest", "legacy_xyz_transpose"}
     assert manifest["schema_version"] == "vti_audit/v2"
     assert manifest["profile_id"] == "vti_standard_full_v1"
@@ -99,7 +120,7 @@ def test_standard_profile_has_no_dead_keys() -> None:
 def test_no_decimation_in_standard_outputs(tmp_path: Path, monkeypatch) -> None:
     vti_path = tmp_path / "dummy.vti"
     vti_path.write_bytes(b"vti")
-    monkeypatch.setattr(audit, "read_vti", lambda _p: _raw_cell_labels())
+    _patch_read_result(monkeypatch)
     monkeypatch.setattr(audit, "_boundary_chamfer", lambda _a, _b: 0.0)
     _patch_converted_identity(monkeypatch)
     _patch_plots(monkeypatch)
@@ -132,7 +153,7 @@ def test_no_decimation_in_standard_outputs(tmp_path: Path, monkeypatch) -> None:
 def test_full_materials_preserved_in_standard(tmp_path: Path, monkeypatch) -> None:
     vti_path = tmp_path / "dummy.vti"
     vti_path.write_bytes(b"vti")
-    monkeypatch.setattr(audit, "read_vti", lambda _p: _raw_cell_labels())
+    _patch_read_result(monkeypatch)
     monkeypatch.setattr(audit, "_boundary_chamfer", lambda _a, _b: 0.0)
     _patch_converted_identity(monkeypatch)
     _patch_plots(monkeypatch)
@@ -170,7 +191,7 @@ def test_cli_rejects_removed_options(tmp_path: Path) -> None:
 def test_audit_outputs_pre_post_mesh_figures(tmp_path: Path, monkeypatch) -> None:
     vti_path = tmp_path / "dummy.vti"
     vti_path.write_bytes(b"vti")
-    monkeypatch.setattr(audit, "read_vti", lambda _p: _raw_cell_labels())
+    _patch_read_result(monkeypatch)
     monkeypatch.setattr(audit, "_boundary_chamfer", lambda _a, _b: 0.0)
     _patch_converted_identity(monkeypatch)
     _patch_plots(monkeypatch)
@@ -200,7 +221,7 @@ def test_audit_outputs_pre_post_mesh_figures(tmp_path: Path, monkeypatch) -> Non
 def test_audit_manifest_contains_postprocess_metrics(tmp_path: Path, monkeypatch) -> None:
     vti_path = tmp_path / "dummy.vti"
     vti_path.write_bytes(b"vti")
-    monkeypatch.setattr(audit, "read_vti", lambda _p: _raw_cell_labels())
+    _patch_read_result(monkeypatch)
     monkeypatch.setattr(audit, "_boundary_chamfer", lambda _a, _b: 0.0)
     _patch_converted_identity(monkeypatch)
     _patch_plots(monkeypatch)
@@ -225,3 +246,24 @@ def test_audit_manifest_contains_postprocess_metrics(tmp_path: Path, monkeypatch
     metrics = cast(dict[str, float], post["metrics"])
     assert metrics["bbox_shift_nm"] >= 0.0
     assert metrics["area_rel_error"] >= 0.0
+
+
+def test_audit_manifest_records_read_fallback_message(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    vti_path = tmp_path / "dummy.vti"
+    vti_path.write_bytes(b"vti")
+    _patch_read_result(
+        monkeypatch,
+        backend_used="xml_fallback",
+        messages=("vtk read fallback to xml: ImportError: no vtk runtime",),
+    )
+    monkeypatch.setattr(audit, "_boundary_chamfer", lambda _a, _b: 0.0)
+    _patch_converted_identity(monkeypatch)
+    _patch_plots(monkeypatch)
+
+    manifest = audit.run_vti_correspondence_audit(vti_path, tmp_path / "out")
+
+    assert manifest["read_backend_used"] == "xml_fallback"
+    assert any("fallback to xml" in message for message in manifest["messages"])

@@ -1,0 +1,94 @@
+name: PR5 Evaluation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  profile:
+    name: ${{ matrix.profile }} profile
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [core, full]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Print profile paths
+        run: python scripts/pr5_profile_paths.py --profile ${{ matrix.profile }} --format text
+
+      - name: Run profile
+        run: python scripts/run_pr5_profile.py --profile ${{ matrix.profile }}
+
+  machine-check-gates:
+    name: machine-check gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Create representative manifests
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("tmp/pr5-gates")
+          root.mkdir(parents=True, exist_ok=True)
+
+          audit = {
+              "schema_version": "vti_audit/v2",
+              "profile_id": "vti_standard_full_v1",
+              "profile_hash": "abc123",
+              "status": "OK",
+              "messages": [],
+              "input_path": "input.vti",
+              "input_hash": "input-hash",
+              "source_array_name": "MaterialIds",
+              "point_to_cell_policy": "nearest",
+              "material_policy": "full",
+              "mesh_mode": "material_shell",
+              "mesh_backend": "vtk",
+              "mesh_backend_used": "vtk",
+              "flat_layout_used": "vtk_x_fastest",
+              "metrics": {"global": {}, "slice": {}, "pair_counts": {}},
+              "postprocess": {"enabled": True, "params": {}, "metrics": {}, "status": "OK"},
+              "outputs": {"figures": [], "tables": []},
+          }
+          preview = {
+              "schema_version": "vti_preview/v2",
+              "profile_id": "vti_standard_full_v1",
+              "profile_hash": "abc123",
+              "status": "WARN",
+              "messages": ["sdf fallback: missing scipy", "shell extraction fallback: missing vtk"],
+              "input_path": "input.vti",
+              "input_hash": "input-hash",
+              "created_at": "2026-03-29T00:00:00+00:00",
+              "generator_version": "0.1.0",
+              "outputs": {"figures": [], "tables": [], "sdf": []},
+              "audit_manifest_path": "audit_manifest.json",
+              "sdf": {"backend": "scipy", "shape": [1, 1, 1], "mu_nm": 20.0},
+              "postprocess": {"enabled": True, "params": {}, "metrics": {}, "status": "OK"},
+          }
+
+          (root / "audit.json").write_text(json.dumps(audit, indent=2, sort_keys=True), encoding="utf-8")
+          (root / "preview.json").write_text(json.dumps(preview, indent=2, sort_keys=True), encoding="utf-8")
+          PY
+
+      - name: Run manifest gates
+        run: python scripts/pr5_manifest_gate.py --manifest tmp/pr5-gates/audit.json --manifest tmp/pr5-gates/preview.json --expected-fallback-warning-count 2
+
+      - name: Run gate tests
+        run: python -m pytest -q tests/ci/test_pr5_manifest_gate.py tests/ci/test_pr5_profiles.py
+

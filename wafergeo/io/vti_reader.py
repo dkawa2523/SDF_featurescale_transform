@@ -48,6 +48,13 @@ class RawVtiImage:
     vtk_meta: dict[str, str] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class VtiReadResult:
+    raw: RawVtiImage
+    backend_used: str
+    messages: tuple[str, ...] = ()
+
+
 def read_vti(path: str | Path) -> RawVtiImage:
     """Read VTI and return raw data object.
 
@@ -256,6 +263,28 @@ def read_vti_materialids_xml_fallback(
     )
 
 
+def read_vti_with_xml_fallback(
+    path: str | Path,
+    candidates: tuple[str, ...] = DEFAULT_MATERIAL_ARRAY_CANDIDATES,
+) -> VtiReadResult:
+    """Read VTI with VTK first, then XML fallback when VTK load fails."""
+
+    input_path = Path(path)
+    if not input_path.exists():
+        raise FileNotFoundError(f"VTI file not found: {input_path}")
+
+    try:
+        raw = read_vti(input_path)
+        return VtiReadResult(raw=raw, backend_used="vtk")
+    except Exception as exc:
+        raw = read_vti_materialids_xml_fallback(input_path, candidates=candidates)
+        return VtiReadResult(
+            raw=raw,
+            backend_used="xml_fallback",
+            messages=(f"vtk read fallback to xml: {type(exc).__name__}: {exc}",),
+        )
+
+
 def _parse_xyz3(raw_value: str, *, name: str) -> tuple[float, float, float]:
     values = [float(v) for v in raw_value.split()]
     if len(values) != 3:
@@ -355,3 +384,4 @@ def _coerce_scalar_labels_local(labels: np.ndarray) -> np.ndarray:
         if np.allclose(labels, rounded, atol=0.0):
             return rounded.astype(np.int64)
     raise ValueError(f"Material array must be integer-valued, got dtype={labels.dtype}")
+

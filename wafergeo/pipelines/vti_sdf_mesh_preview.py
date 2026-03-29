@@ -3,11 +3,12 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import numpy as np
 
 import wafergeo
+from wafergeo._matplotlib import require_matplotlib_pyplot
 from wafergeo.core.hashing import hash_config, sha256_file
 from wafergeo.pipelines.vti_correspondence_audit import (
     STANDARD_VTI_PROFILE_ID,
@@ -19,27 +20,16 @@ from wafergeo.pipelines.vti_correspondence_audit import (
 PREVIEW_SCHEMA_VERSION = "vti_preview/v2"
 
 
-def _require_matplotlib() -> Any:
-    try:
-        import matplotlib
-
-        matplotlib.use("Agg", force=True)
-        import matplotlib.pyplot as plt
-    except Exception as exc:  # pragma: no cover - environment dependent
-        raise ImportError(
-            "matplotlib is required for preview rendering. "
-            "Install with: pip install -e '.[viz]'"
-        ) from exc
-    return plt
-
-
 def _material_count_map(labels_zyx: np.ndarray) -> dict[str, int]:
     ids, counts = np.unique(labels_zyx, return_counts=True)
     return {str(int(mid)): int(cnt) for mid, cnt in zip(ids.tolist(), counts.tolist(), strict=True)}
 
 
 def _plot_sdf_minabs_xyz_mid(tsdf: np.ndarray, output_path: Path) -> None:
-    plt = _require_matplotlib()
+    plt = require_matplotlib_pyplot(
+        context="preview rendering",
+        install_hint="pip install -e '[viz]'",
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     min_abs = np.min(np.abs(tsdf.astype(np.float32, copy=False)), axis=0)
     zmid = min_abs.shape[0] // 2
@@ -67,7 +57,10 @@ def _plot_sdf_channels_plane(
     *,
     plane: str,
 ) -> None:
-    plt = _require_matplotlib()
+    plt = require_matplotlib_pyplot(
+        context="preview rendering",
+        install_hint="pip install -e '[viz]'",
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     m = tsdf.shape[0]
     cols = min(4, m)
@@ -192,6 +185,7 @@ def run_single_vti_preview(
             "material_policy": str(profile["material_policy"]),
             "mesh_mode": str(profile["mesh_mode"]),
             "mesh_backend_used": str(profile["mesh_backend"]),
+            "read_backend_used": bundle.read_backend_used,
             "audit_manifest_path": "audit_manifest.json",
             "postprocess": cast(dict[str, object], audit_manifest.get("postprocess", {})),
             "sdf": {
