@@ -8,10 +8,9 @@ from typing import Literal, cast
 
 import numpy as np
 
-import wafergeo.io.vti_reader as vti_reader
-from wafergeo._matplotlib import require_matplotlib_audit_plotting
-from wafergeo.core.geometry import nearest_neighbor_distances_numpy, vtk_polys_to_triangles
 from wafergeo.core.hashing import hash_config, sha256_file
+from wafergeo.io import vti_reader
+from wafergeo._matplotlib import require_matplotlib_audit_plotting
 from wafergeo.io.vti_reader import (
     ArrayLocation,
     RawVtiImage,
@@ -21,10 +20,18 @@ from wafergeo.io.vti_reader import (
 )
 from wafergeo.label.normalize import convert_point_labels_to_cell_zyx
 from wafergeo.mesh.config import MeshBuildConfig
-from wafergeo.mesh.extractors.vtk_interface import apply_vtk_visual_postprocess
+from wafergeo.mesh.extractors.vtk_interface import (
+    VTKInterfaceExtractor,
+    apply_vtk_visual_postprocess,
+)
 from wafergeo.sdf.audit import build_full_material_sdf
 
 PlaneName = Literal["x_mid", "y_mid", "z_mid"]
+
+# Backward-compatible aliases kept for tests and older call sites that monkeypatch
+# reader functions on this module directly.
+read_vti = vti_reader.read_vti
+read_vti_with_xml_fallback = vti_reader.read_vti_with_xml_fallback
 
 
 STANDARD_VTI_PROFILE_ID = "vti_standard_full_v1"
@@ -71,6 +78,7 @@ def get_standard_vti_profile() -> dict[str, object]:
         "qa_postprocess_on_exceed": "warn",
     }
 
+
 def _as_bool(value: object) -> bool:
     return bool(value)
 
@@ -85,6 +93,14 @@ def _as_float(value: object) -> float:
 
 def _as_str(value: object) -> str:
     return str(value)
+
+
+def _read_vti_result(path: Path) -> vti_reader.VtiReadResult:
+    # Preserve older monkeypatch patterns that replaced `read_vti` directly on this module.
+    if read_vti is not vti_reader.read_vti:
+        raw = read_vti(path)
+        return vti_reader.VtiReadResult(raw=raw, backend_used="vtk")
+    return vti_reader.read_vti_with_xml_fallback(path)
 
 
 def _canonical_cell_grid(raw) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
@@ -149,6 +165,15 @@ def _proxy_tsdf_from_labels(
     return tsdf
 
 
+def _vtk_polys_to_triangles(polys, vtk_to_numpy) -> np.ndarray:
+    class _NumpySupportShim:
+        @staticmethod
+        def vtk_to_numpy(arr):
+            return vtk_to_numpy(arr)
+
+    return VTKInterfaceExtractor._vtk_polys_to_triangles(polys, _NumpySupportShim)
+
+
 def _extract_label_shells(
     *,
     label_zyx: np.ndarray,
@@ -194,7 +219,7 @@ def _extract_label_shells(
         if points is None or polys is None:
             continue
         vertices = vtk_to_numpy(points.GetData()).astype(np.float32, copy=False)
-        faces = vtk_polys_to_triangles(polys, vtk_to_numpy)
+        faces = _vtk_polys_to_triangles(polys, vtk_to_numpy)
         if faces.size == 0:
             continue
         out[int(mid)] = (vertices, faces)
@@ -288,9 +313,29 @@ def _boundary_chamfer(mask_a: np.ndarray, mask_b: np.ndarray) -> float:
     except Exception:  # pragma: no cover - env dependent
         a = np.argwhere(ba).astype(np.float64, copy=False)
         b = np.argwhere(bb).astype(np.float64, copy=False)
-        d_ab = nearest_neighbor_distances_numpy(a, b)
-        d_ba = nearest_neighbor_distances_numpy(b, a)
+        d_ab = _nearest_neighbor_2d_numpy(a, b)
+        d_ba = _nearest_neighbor_2d_numpy(b, a)
         return 0.5 * float(np.mean(d_ab) + np.mean(d_ba))
+
+
+def _nearest_neighbor_2d_numpy(
+    src_yx: np.ndarray,
+    dst_yx: np.ndarray,
+    *,
+    chunk_size: int = 256,
+) -> np.ndarray:
+    if src_yx.shape[0] == 0:
+        return np.zeros((0,), dtype=np.float64)
+    if dst_yx.shape[0] == 0:
+        return np.full((src_yx.shape[0],), np.inf, dtype=np.float64)
+    out = np.empty((src_yx.shape[0],), dtype=np.float64)
+    for start in range(0, src_yx.shape[0], chunk_size):
+        stop = min(start + chunk_size, src_yx.shape[0])
+        chunk = src_yx[start:stop]
+        diff = chunk[:, None, :] - dst_yx[None, :, :]
+        dist_sq = np.einsum("ijk,ijk->ij", diff, diff, optimize=True)
+        out[start:stop] = np.sqrt(np.min(dist_sq, axis=1))
+    return out
 
 
 def _compute_slice_metrics(
@@ -354,7 +399,7 @@ def _plot_shells_translucent(
 ) -> tuple[int, int]:
     plt, _, Poly3DCollection = require_matplotlib_audit_plotting(
         context="audit plots",
-        install_hint="pip install -e '[viz]'",
+        install_hint="pip install -e '.[viz]'",
     )
     palette = [
         "#1f77b4",
@@ -407,7 +452,7 @@ def _plot_overlay_shells(
 ) -> tuple[int, int]:
     plt, _, Poly3DCollection = require_matplotlib_audit_plotting(
         context="audit plots",
-        install_hint="pip install -e '[viz]'",
+        install_hint="pip install -e '.[viz]'",
     )
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection="3d")
@@ -511,7 +556,7 @@ def _plot_slice_compare(
 ) -> None:
     plt, _, _ = require_matplotlib_audit_plotting(
         context="audit plots",
-        install_hint="pip install -e '[viz]'",
+        install_hint="pip install -e '.[viz]'",
     )
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     axes[0].imshow(raw_2d, origin="lower", cmap="tab20")
@@ -535,7 +580,7 @@ def _plot_boundary_overlay(
 ) -> None:
     plt, _, _ = require_matplotlib_audit_plotting(
         context="audit plots",
-        install_hint="pip install -e '[viz]'",
+        install_hint="pip install -e '.[viz]'",
     )
     br = _binary_boundary(raw_2d)
     bc = _binary_boundary(conv_2d)
@@ -605,7 +650,7 @@ def compute_standard_vti_bundle(
     profile = get_standard_vti_profile()
     point_to_cell_policy = str(profile["point_to_cell_policy"])
 
-    read_result = vti_reader.read_vti_with_xml_fallback(vti_path)
+    read_result = _read_vti_result(vti_path)
     raw = read_result.raw
     input_hash = sha256_file(vti_path)
     flat_layout_used = infer_flat_array_layout(raw)
@@ -714,6 +759,7 @@ def run_vti_correspondence_audit(
     profile_hash = hash_config(profile)
 
     input_hash = bundle.input_hash
+    read_backend_used = bundle.read_backend_used
     source_array = bundle.source_array
     converted_from_point = bundle.converted_from_point
     flat_layout_used = bundle.flat_layout_used
@@ -907,7 +953,6 @@ def run_vti_correspondence_audit(
         "messages": messages,
         "input_path": str(path),
         "input_hash": input_hash,
-        "read_backend_used": bundle.read_backend_used,
         "source_array_name": source_array,
         "converted_from_point": converted_from_point,
         "point_to_cell_policy": point_to_cell_policy,
@@ -915,6 +960,7 @@ def run_vti_correspondence_audit(
         "mesh_mode": mesh_mode,
         "mesh_backend": mesh_backend,
         "mesh_backend_used": mesh_backend,
+        "read_backend_used": read_backend_used,
         "flat_layout_used": flat_layout_used,
         "material_ids_raw": material_ids_raw,
         "material_ids_converted": material_ids_conv,

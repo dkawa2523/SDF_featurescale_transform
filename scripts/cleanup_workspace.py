@@ -5,6 +5,7 @@ import argparse
 import shutil
 from pathlib import Path
 
+
 SAFE_ROOT_DIRS = (
     ".pytest_cache",
     ".mypy_cache",

@@ -6,8 +6,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from wafergeo.core.geometry import nearest_neighbor_distances_numpy
-
 
 @dataclass(frozen=True)
 class StageMetrics:
@@ -85,12 +83,37 @@ def _surface_chamfer_and_coverage(
         d_mesh_to_ref = ref_tree.query(mesh_points_xyz, k=1)[0]
         d_ref_to_mesh = mesh_tree.query(ref_points_xyz, k=1)[0]
     except Exception:  # pragma: no cover - env dependent
-        d_mesh_to_ref = nearest_neighbor_distances_numpy(mesh_points_xyz, ref_points_xyz)
-        d_ref_to_mesh = nearest_neighbor_distances_numpy(ref_points_xyz, mesh_points_xyz)
+        d_mesh_to_ref = _nearest_neighbor_distances_numpy(mesh_points_xyz, ref_points_xyz)
+        d_ref_to_mesh = _nearest_neighbor_distances_numpy(ref_points_xyz, mesh_points_xyz)
 
     chamfer = 0.5 * float(np.mean(d_mesh_to_ref) + np.mean(d_ref_to_mesh))
     coverage = float(np.mean(d_mesh_to_ref <= float(tau_nm)))
     return chamfer, coverage
+
+
+def _nearest_neighbor_distances_numpy(
+    src_xyz: np.ndarray,
+    dst_xyz: np.ndarray,
+    *,
+    chunk_size: int = 256,
+) -> np.ndarray:
+    if src_xyz.shape[0] == 0:
+        return np.zeros((0,), dtype=np.float64)
+    if dst_xyz.shape[0] == 0:
+        return np.full((src_xyz.shape[0],), np.inf, dtype=np.float64)
+
+    src = np.asarray(src_xyz, dtype=np.float64)
+    dst = np.asarray(dst_xyz, dtype=np.float64)
+    out = np.empty((src.shape[0],), dtype=np.float64)
+    for start in range(0, src.shape[0], chunk_size):
+        stop = min(start + chunk_size, src.shape[0])
+        chunk = src[start:stop]
+        diff = chunk[:, None, :] - dst[None, :, :]
+        dist_sq = np.einsum("ijk,ijk->ij", diff, diff, optimize=True)
+        out[start:stop] = np.sqrt(np.min(dist_sq, axis=1))
+    return out
+
+
 def _bbox_nm(
     points_xyz: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray] | None:

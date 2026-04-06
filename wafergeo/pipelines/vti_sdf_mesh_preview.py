@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 
@@ -28,7 +28,7 @@ def _material_count_map(labels_zyx: np.ndarray) -> dict[str, int]:
 def _plot_sdf_minabs_xyz_mid(tsdf: np.ndarray, output_path: Path) -> None:
     plt = require_matplotlib_pyplot(
         context="preview rendering",
-        install_hint="pip install -e '[viz]'",
+        install_hint="pip install -e '.[viz]'",
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     min_abs = np.min(np.abs(tsdf.astype(np.float32, copy=False)), axis=0)
@@ -59,7 +59,7 @@ def _plot_sdf_channels_plane(
 ) -> None:
     plt = require_matplotlib_pyplot(
         context="preview rendering",
-        install_hint="pip install -e '[viz]'",
+        install_hint="pip install -e '.[viz]'",
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     m = tsdf.shape[0]
