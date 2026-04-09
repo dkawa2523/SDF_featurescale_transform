@@ -1,0 +1,10 @@
+key,value
+interface_mesh_chamfer_nm_mean,0.6012348356637995
+interface_mesh_coverage_mean,0.9919405456528897
+interface_mesh_iou_mean,0.9919405456528897
+material_shell_mesh_chamfer_nm_mean,0.5885799354710491
+material_shell_mesh_coverage_mean,0.9918089490583895
+material_shell_mesh_iou_mean,0.9918089490583895
+policy_gap_max,0.13717421124828533
+render_diff_rate_mean,0.0
+sdf_roundtrip_acc_mean,1.0

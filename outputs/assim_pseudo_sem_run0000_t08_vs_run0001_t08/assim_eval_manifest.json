@@ -1,0 +1,210 @@
+{
+  "schema_version": "assim_pseudo_sem_eval/v1",
+  "created_at": "2026-03-02T23:19:06.218730+00:00",
+  "generator_version": "0.1.0",
+  "runs": [
+    "run_0000",
+    "run_0001"
+  ],
+  "timepoint": "t08",
+  "normalization_profile": {
+    "domain": "cell_center",
+    "flat_layout": "auto",
+    "point_to_cell_policy": "nearest",
+    "outside_material_id": 2,
+    "material_policy": "shared_top5_due_core_material_limit"
+  },
+  "material_selection": {
+    "selected_ids": [
+      2,
+      10,
+      0,
+      11,
+      7
+    ],
+    "selected_counts": {
+      "2": 964290,
+      "10": 3889624,
+      "0": 486214,
+      "11": 26026,
+      "7": 4484
+    },
+    "remap_non_selected_to": 2
+  },
+  "slice_selection": {
+    "strategy": "max_binary_diff_with_nonempty_obs_mask",
+    "selected_material_id": 10,
+    "selected_z_index": 121,
+    "selected_coord_nm": -156.0,
+    "slab_thickness_nm": 0.0,
+    "band_mode": "obs_band",
+    "top_candidates": [
+      {
+        "material_id": 10,
+        "z_index": 121,
+        "obs_mask_sum": 9653,
+        "diff_rate": 0.006019793898581777
+      },
+      {
+        "material_id": 10,
+        "z_index": 115,
+        "obs_mask_sum": 9652,
+        "diff_rate": 0.006019793898581777
+      },
+      {
+        "material_id": 10,
+        "z_index": 116,
+        "obs_mask_sum": 9652,
+        "diff_rate": 0.006019793898581777
+      },
+      {
+        "material_id": 10,
+        "z_index": 120,
+        "obs_mask_sum": 9652,
+        "diff_rate": 0.006019793898581777
+      },
+      {
+        "material_id": 11,
+        "z_index": 115,
+        "obs_mask_sum": 149,
+        "diff_rate": 0.006019793898581777
+      },
+      {
+        "material_id": 11,
+        "z_index": 116,
+        "obs_mask_sum": 149,
+        "diff_rate": 0.006019793898581777
+      },
+      {
+        "material_id": 11,
+        "z_index": 120,
+        "obs_mask_sum": 149,
+        "diff_rate": 0.006019793898581777
+      },
+      {
+        "material_id": 11,
+        "z_index": 121,
+        "obs_mask_sum": 148,
+        "diff_rate": 0.006019793898581777
+      },
+      {
+        "material_id": 10,
+        "z_index": 117,
+        "obs_mask_sum": 9651,
+        "diff_rate": 0.005917763493521069
+      },
+      {
+        "material_id": 11,
+        "z_index": 117,
+        "obs_mask_sum": 150,
+        "diff_rate": 0.005917763493521069
+      }
+    ]
+  },
+  "results": {
+    "rows": [
+      {
+        "obs_run": "run_0000",
+        "candidate_run": "run_0000",
+        "total_loss": 0.0,
+        "status": "OK",
+        "metric_tsdf_loss": 0.0,
+        "selected_material_id": 10,
+        "selected_z_index": 121,
+        "messages": []
+      },
+      {
+        "obs_run": "run_0000",
+        "candidate_run": "run_0001",
+        "total_loss": 0.0037769845221191645,
+        "status": "OK",
+        "metric_tsdf_loss": 0.0037769845221191645,
+        "selected_material_id": 10,
+        "selected_z_index": 121,
+        "messages": []
+      }
+    ],
+    "self": {
+      "obs_run": "run_0000",
+      "candidate_run": "run_0000",
+      "total_loss": 0.0,
+      "status": "OK",
+      "metric_tsdf_loss": 0.0,
+      "selected_material_id": 10,
+      "selected_z_index": 121,
+      "messages": []
+    },
+    "cross": {
+      "obs_run": "run_0000",
+      "candidate_run": "run_0001",
+      "total_loss": 0.0037769845221191645,
+      "status": "OK",
+      "metric_tsdf_loss": 0.0037769845221191645,
+      "selected_material_id": 10,
+      "selected_z_index": 121,
+      "messages": []
+    }
+  },
+  "validity": {
+    "status_ok": true,
+    "self_threshold_ok": true,
+    "cross_margin_ok": true,
+    "overall": "PASS"
+  },
+  "messages": [
+    "Pseudo-SEM Obs2D generated from run_0000 t08 using SliceObserver.",
+    "Loss metric uses tsdf_band_robust_weight.",
+    "Fallback path recorded in fallback_trials."
+  ],
+  "fallback_trials": [
+    {
+      "material_id": 10,
+      "z_index": 121,
+      "slab_thickness_nm": 0.0,
+      "band": "obs_band",
+      "rows": [
+        {
+          "obs_run": "run_0000",
+          "candidate_run": "run_0000",
+          "total_loss": 0.0,
+          "status": "OK",
+          "metric_tsdf_loss": 0.0,
+          "messages": []
+        },
+        {
+          "obs_run": "run_0000",
+          "candidate_run": "run_0001",
+          "total_loss": 0.0037769845221191645,
+          "status": "OK",
+          "metric_tsdf_loss": 0.0037769845221191645,
+          "messages": []
+        }
+      ]
+    }
+  ],
+  "artifacts": {
+    "store_root": "outputs/assim_pseudo_sem_run0000_t08_vs_run0001_t08/artifacts",
+    "sem_obs_artifact_id": "3704f340fb3d7c8681ab286f666714306b239bb762c538ad75f47754a25fd0e3",
+    "pseudo_sem_image": "pseudo_sem_image_run0000_t08.png",
+    "pseudo_sem_obs_summary": "pseudo_sem_obs_summary.json",
+    "rows_csv": "assim_eval_rows.csv"
+  },
+  "source": {
+    "vti": {
+      "run_0000": "data/ataset_3d_test2/run_0000/vox_t08.vti",
+      "run_0001": "data/ataset_3d_test2/run_0001/vox_t08.vti"
+    },
+    "vti_meta": {
+      "run_0000": {
+        "source_array": "MaterialIds",
+        "source_location": "point",
+        "converted_from_point": true
+      },
+      "run_0001": {
+        "source_array": "MaterialIds",
+        "source_location": "point",
+        "converted_from_point": true
+      }
+    }
+  }
+}

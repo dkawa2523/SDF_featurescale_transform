@@ -1,0 +1,70 @@
+{
+  "status": "OK",
+  "input_path": "data/ataset_3d_test2/run_0000/vox_t08.vti",
+  "material_policy": "full",
+  "point_to_cell_policy": "nearest",
+  "source_array": "MaterialIds",
+  "material_ids": [
+    0,
+    2,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "material_count": 9,
+  "label_shape_zyx": [
+    274,
+    99,
+    99
+  ],
+  "sdf_full_shape": [
+    9,
+    274,
+    99,
+    99
+  ],
+  "sdf_roundtrip_acc": 1.0,
+  "mesh_shell_backend": "naive_interface",
+  "mesh_shell_stats": {
+    "0": {
+      "vertices": 68564,
+      "faces": 136496
+    },
+    "2": {
+      "vertices": 75308,
+      "faces": 149684
+    },
+    "5": {
+      "vertices": 36,
+      "faces": 56
+    },
+    "6": {
+      "vertices": 8,
+      "faces": 12
+    },
+    "7": {
+      "vertices": 7226,
+      "faces": 14376
+    },
+    "8": {
+      "vertices": 820,
+      "faces": 1352
+    },
+    "9": {
+      "vertices": 64,
+      "faces": 96
+    },
+    "10": {
+      "vertices": 159152,
+      "faces": 314404
+    },
+    "11": {
+      "vertices": 50776,
+      "faces": 96408
+    }
+  }
+}

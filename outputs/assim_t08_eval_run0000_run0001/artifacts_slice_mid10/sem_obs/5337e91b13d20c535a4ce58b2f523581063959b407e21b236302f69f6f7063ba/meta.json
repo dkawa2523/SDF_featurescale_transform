@@ -1,0 +1,22 @@
+{
+  "config_hash": "db6fc8f99ba88ed7461483aa5eb7c9355778bdcac0284c0f18a865c9322cd456",
+  "created_at": "2026-03-02T22:52:00.290576+00:00",
+  "extra": {
+    "observer_kind": "slice",
+    "observer_name": "assim_slice_z_mid10",
+    "observer_qa_notes": "",
+    "observer_qa_status": "OK",
+    "observer_spec_hash": "db6fc8f99ba88ed7461483aa5eb7c9355778bdcac0284c0f18a865c9322cd456",
+    "observer_spec_version": "observer/v2",
+    "run_key": "run_0000",
+    "slice_axis": "z",
+    "slice_center_index": "115",
+    "slice_count": "1",
+    "source_kind": "label"
+  },
+  "generator_version": "0.1.0",
+  "git_commit": "workspace",
+  "input_hash": "dc127124a9729ffad628b80fbf72a166173cdbbf8fee400012ba4a525f43ab17",
+  "profile_id": "assim_slice_z_mid10",
+  "schema_version": "observer/v2"
+}

@@ -7,9 +7,8 @@ from typing import cast
 
 import numpy as np
 
-import wafergeo.io.vti_reader as vti_reader
 from wafergeo.core.hashing import hash_config
-from wafergeo.io.vti_reader import RawVtiImage
+from wafergeo.io.vti_reader import RawVtiImage, VtiReadResult
 from wafergeo.pipelines import vti_correspondence_audit as audit
 
 
@@ -28,6 +27,25 @@ def _raw_cell_labels() -> RawVtiImage:
         dims_xyz=(5, 4, 3),
         arrays={"MaterialIds": cell_xyz.ravel(order="C")},
         array_location={"MaterialIds": "cell"},
+    )
+
+
+def _patch_read_result(
+    monkeypatch,
+    *,
+    raw: RawVtiImage | None = None,
+    backend_used: str = "vtk",
+    messages: tuple[str, ...] = (),
+) -> None:
+    result = VtiReadResult(
+        raw=_raw_cell_labels() if raw is None else raw,
+        backend_used=backend_used,
+        messages=messages,
+    )
+    monkeypatch.setattr(
+        audit.vti_reader,
+        "read_vti_with_xml_fallback",
+        lambda _p: result,
     )
 
 
@@ -61,29 +79,10 @@ def _patch_converted_identity(monkeypatch) -> None:
     )
 
 
-def _patch_read_result(
-    monkeypatch,
-    *,
-    raw: RawVtiImage | None = None,
-    backend_used: str = "vtk",
-    messages: tuple[str, ...] = (),
-) -> None:
-    result = vti_reader.VtiReadResult(
-        raw=_raw_cell_labels() if raw is None else raw,
-        backend_used=backend_used,
-        messages=messages,
-    )
-    monkeypatch.setattr(
-        vti_reader,
-        "read_vti_with_xml_fallback",
-        lambda _p: result,
-    )
-
-
 def test_audit_standard_profile_is_fixed(tmp_path: Path, monkeypatch) -> None:
     vti_path = tmp_path / "dummy.vti"
     vti_path.write_bytes(b"vti")
-    _patch_read_result(monkeypatch)
+    monkeypatch.setattr(audit, "read_vti", lambda _p: _raw_cell_labels())
     monkeypatch.setattr(audit, "_boundary_chamfer", lambda _a, _b: 0.0)
     _patch_converted_identity(monkeypatch)
     _patch_plots(monkeypatch)
@@ -120,7 +119,7 @@ def test_standard_profile_has_no_dead_keys() -> None:
 def test_no_decimation_in_standard_outputs(tmp_path: Path, monkeypatch) -> None:
     vti_path = tmp_path / "dummy.vti"
     vti_path.write_bytes(b"vti")
-    _patch_read_result(monkeypatch)
+    monkeypatch.setattr(audit, "read_vti", lambda _p: _raw_cell_labels())
     monkeypatch.setattr(audit, "_boundary_chamfer", lambda _a, _b: 0.0)
     _patch_converted_identity(monkeypatch)
     _patch_plots(monkeypatch)
@@ -153,7 +152,7 @@ def test_no_decimation_in_standard_outputs(tmp_path: Path, monkeypatch) -> None:
 def test_full_materials_preserved_in_standard(tmp_path: Path, monkeypatch) -> None:
     vti_path = tmp_path / "dummy.vti"
     vti_path.write_bytes(b"vti")
-    _patch_read_result(monkeypatch)
+    monkeypatch.setattr(audit, "read_vti", lambda _p: _raw_cell_labels())
     monkeypatch.setattr(audit, "_boundary_chamfer", lambda _a, _b: 0.0)
     _patch_converted_identity(monkeypatch)
     _patch_plots(monkeypatch)
@@ -191,7 +190,7 @@ def test_cli_rejects_removed_options(tmp_path: Path) -> None:
 def test_audit_outputs_pre_post_mesh_figures(tmp_path: Path, monkeypatch) -> None:
     vti_path = tmp_path / "dummy.vti"
     vti_path.write_bytes(b"vti")
-    _patch_read_result(monkeypatch)
+    monkeypatch.setattr(audit, "read_vti", lambda _p: _raw_cell_labels())
     monkeypatch.setattr(audit, "_boundary_chamfer", lambda _a, _b: 0.0)
     _patch_converted_identity(monkeypatch)
     _patch_plots(monkeypatch)
@@ -221,7 +220,7 @@ def test_audit_outputs_pre_post_mesh_figures(tmp_path: Path, monkeypatch) -> Non
 def test_audit_manifest_contains_postprocess_metrics(tmp_path: Path, monkeypatch) -> None:
     vti_path = tmp_path / "dummy.vti"
     vti_path.write_bytes(b"vti")
-    _patch_read_result(monkeypatch)
+    monkeypatch.setattr(audit, "read_vti", lambda _p: _raw_cell_labels())
     monkeypatch.setattr(audit, "_boundary_chamfer", lambda _a, _b: 0.0)
     _patch_converted_identity(monkeypatch)
     _patch_plots(monkeypatch)

@@ -1,0 +1,15 @@
+{
+  "status": "OK",
+  "material_policy": "full",
+  "point_to_cell_policy": "nearest",
+  "material_count": 9,
+  "outputs": {
+    "figures": [
+      "mesh_full_translucent_3d.png",
+      "mesh_full_translucent_topdown.png",
+      "sdf_full_x_mid_channels.png",
+      "sdf_full_y_mid_channels.png",
+      "sdf_full_zero_band_translucent_3d.png"
+    ]
+  }
+}

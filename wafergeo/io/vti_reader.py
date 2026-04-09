@@ -267,7 +267,12 @@ def read_vti_with_xml_fallback(
     path: str | Path,
     candidates: tuple[str, ...] = DEFAULT_MATERIAL_ARRAY_CANDIDATES,
 ) -> VtiReadResult:
-    """Read VTI with VTK first, then XML fallback when VTK load fails."""
+    """Read VTI with VTK first, then XML fallback when VTK load fails.
+
+    The helper keeps the primary VTK code path, but returns a structured result
+    so callers can record which backend actually loaded the file and why a
+    fallback was needed.
+    """
 
     input_path = Path(path)
     if not input_path.exists():
@@ -384,4 +389,3 @@ def _coerce_scalar_labels_local(labels: np.ndarray) -> np.ndarray:
         if np.allclose(labels, rounded, atol=0.0):
             return rounded.astype(np.int64)
     raise ValueError(f"Material array must be integer-valued, got dtype={labels.dtype}")
-

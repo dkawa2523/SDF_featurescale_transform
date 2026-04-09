@@ -190,8 +190,8 @@ class ObserverSpec:
 class Obs2D:
     """Unified 2D observation domain.
 
-    Field set follows the detailed observer design in `4_observer.md` (more specific
-    than `0_design.md`), including contour loops and debug maps.
+    Field set follows the detailed observer design in `docs/4_observer.md` (more
+    specific than `docs/0_design.md`), including contour loops and debug maps.
     """
 
     grid2d: GridSpec

@@ -1,0 +1,6 @@
+key,value
+interface_mesh_iou_mean,0.01769333164244835
+material_shell_mesh_iou_mean,0.016592293062140048
+policy_gap_max,0.13717421124828533
+render_diff_rate_mean,0.0
+sdf_roundtrip_acc_mean,1.0

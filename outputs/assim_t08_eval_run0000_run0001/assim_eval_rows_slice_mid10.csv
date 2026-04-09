@@ -1,0 +1,5 @@
+direction,obs_run,candidate_run,total_loss,status,metric_tsdf_loss
+obs_run_0000,run_0000,run_0000,0.0,OK,0.0
+obs_run_0000,run_0000,run_0001,0.0037353900261223316,OK,0.0037353900261223316
+obs_run_0001,run_0001,run_0001,0.0,OK,0.0
+obs_run_0001,run_0001,run_0000,0.0034931909758597612,OK,0.0034931909758597612

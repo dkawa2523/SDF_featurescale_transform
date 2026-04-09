@@ -1,0 +1,11 @@
+{
+  "artifact_id": "dd81be549b3e35c65276264bfc3f17ec5aaf6d6f5d5d930ead0154bc8057c72c",
+  "artifact_type": "sem_obs",
+  "config_hash": "7eed46fce1a9632a9f9beb2f46eea844400e9c84912d736d822edd8472b2e4cc",
+  "generator_version": "0.1.0",
+  "input_hash": "782b0cd4507656d771ae968109468a58cc07a157368f3ced3ac23cd3e8980595",
+  "payload_format": "json+npy",
+  "payload_format_version": 1,
+  "profile_id": "assim_topdown_t08",
+  "schema_version": "observer/v2"
+}

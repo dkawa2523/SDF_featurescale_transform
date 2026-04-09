@@ -1,0 +1,235 @@
+{
+  "status": "OK",
+  "input_path": "data/ataset_3d_test2/run_0000/vox_t08.vti",
+  "input_hash": "dc127124a9729ffad628b80fbf72a166173cdbbf8fee400012ba4a525f43ab17",
+  "created_at": "2026-03-02T19:37:04.205003+00:00",
+  "generator_version": "0.1.0",
+  "source_array_name": "MaterialIds",
+  "converted_from_point": true,
+  "point_to_cell_policy": "nearest",
+  "point_to_cell_drift_rate_vs_point_like_cell": 0.0,
+  "flat_layout_used": "vtk_x_fastest",
+  "plot_quality": "balanced",
+  "max_faces_per_material": 150000,
+  "comparison_profile": {
+    "domain": "cell_center",
+    "point_to_cell_policy": "nearest",
+    "mesh_mode": "material_shell",
+    "flat_layout": "vtk_x_fastest",
+    "plot_quality": "balanced"
+  },
+  "outside_material_id": 2,
+  "max_materials": 5,
+  "selected_material_ids": [
+    2,
+    10,
+    0,
+    11,
+    7
+  ],
+  "all_material_counts": {
+    "0": 243107,
+    "2": 482145,
+    "5": 5,
+    "6": 1,
+    "7": 2250,
+    "8": 137,
+    "9": 8,
+    "10": 1946006,
+    "11": 11815
+  },
+  "selected_material_counts": {
+    "0": 243107,
+    "2": 482296,
+    "7": 2250,
+    "10": 1946006,
+    "11": 11815
+  },
+  "label_qa": {
+    "material_counts": {
+      "2": 482296,
+      "10": 1946006,
+      "0": 243107,
+      "11": 11815,
+      "7": 2250
+    },
+    "material_volume_nm3": {
+      "2": 3858368.0,
+      "10": 15568048.0,
+      "0": 1944856.0,
+      "11": 94520.0,
+      "7": 18000.0
+    },
+    "void_fraction": 0.1795943658363477,
+    "unknown_count": 0,
+    "unknown_rate": 0.0,
+    "unknown_values": [],
+    "converted_from_point": true,
+    "mask_conflict_count": 0,
+    "notes": [
+      "non-selected materials remapped to outside"
+    ]
+  },
+  "sdf": {
+    "backend": "scipy",
+    "shape": [
+      5,
+      274,
+      99,
+      99
+    ],
+    "qa": {
+      "tsdf_min": -1.0,
+      "tsdf_max": 1.0,
+      "nan_count": 0,
+      "inf_count": 0,
+      "band_fraction": 0.1610013725696097,
+      "present_materials": {
+        "2": true,
+        "10": true,
+        "0": true,
+        "11": true,
+        "7": true
+      },
+      "grad_mag_mean": 1.5185306072235107,
+      "grad_mag_std": 2.0077903270721436,
+      "grad_unit_error_rate": 0.18228117447064401,
+      "notes": []
+    }
+  },
+  "mesh": {
+    "backend_requested": "vtk",
+    "backend_used": "vtk",
+    "vertices": 28305,
+    "faces": 57738,
+    "mesh_faces_total": 57738,
+    "mesh_faces_plotted": 57738,
+    "pointcloud_points": 2048,
+    "qa": {
+      "num_vertices": 28305,
+      "num_faces": 57738,
+      "degenerate_face_count": 0,
+      "degenerate_face_rate": 0.0,
+      "interface_area_total": 108757.8671875,
+      "exposed_face_ratio": 0.4062662422657013,
+      "interface_area_by_pair": {
+        "2-2": 122.97560513019562,
+        "2-10": 1222.3129615783691,
+        "2-7": 806.8834992647171,
+        "2-11": 584.9840096235275,
+        "0-2": 42090.2489836216,
+        "0-0": 32.90896475315094,
+        "11-11": 153.28649371862411,
+        "10-11": 15753.739847302437,
+        "10-10": 105.65509736537933,
+        "7-7": 27.712812423706055,
+        "7-10": 9576.472209334373,
+        "0-10": 28790.15641593933,
+        "0-7": 9327.12697839737,
+        "0-11": 163.4091091156006
+      },
+      "notes": []
+    },
+    "notes": []
+  },
+  "config": {
+    "sdf_cfg": {
+      "mu_nm": 20.0,
+      "backend": "scipy",
+      "include_void_channel": true,
+      "boundary_features": true,
+      "pair_code_outside_band": 255,
+      "band_only_pair_code": true,
+      "roi_zyx": null,
+      "roi_margin_nm": null,
+      "tsdf_store_dtype": "float16",
+      "compute_present_mask": true,
+      "qa_grad_check": true,
+      "qa_grad_tolerance": 0.2,
+      "schema_version": "sdf/v1",
+      "profile_id": "sdf_build_v1"
+    },
+    "mesh_cfg": {
+      "mode": "material_shell",
+      "backend": "vtk",
+      "iso_value": 0.0,
+      "channel_material_ids": null,
+      "sample_points_n": 2048,
+      "sample_seed": 0,
+      "sample_surface_strategy": "area_uniform",
+      "qa_degenerate_area_eps": 1e-12,
+      "schema_version": "mesh/v1",
+      "profile_id": "mesh_build_v1"
+    },
+    "point_to_cell_policy": "nearest"
+  },
+  "inputs_json": {
+    "ionAngleWidthDeg": 1.6735757698315954,
+    "ionExponent": 7020.4326450570925,
+    "maxBoundaryHits": 441,
+    "maxReflections": 59,
+    "dx_nm": 2.0,
+    "domain_xExtent_nm": 100.0,
+    "domain_yExtent_nm": 100.0,
+    "voxel_bounds_nm": [
+      -100.0,
+      100.0,
+      -100.0,
+      100.0,
+      -400.0,
+      150.0
+    ],
+    "total_duration_s": 24.0,
+    "n_snapshots": 8,
+    "segment_duration_s": 3.0,
+    "snapshot_times_s": [
+      0.0,
+      3.0,
+      6.0,
+      9.0,
+      12.0,
+      15.0,
+      18.0,
+      21.0,
+      24.0
+    ],
+    "raysPerPoint": 100,
+    "timeStepRatio": 0.4,
+    "rtMinNodeDistanceFactor": 0.15,
+    "covMaxIterations": 10,
+    "covTolerance": 0.001,
+    "outside_material_id": 2,
+    "expected_material_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "sf6o2_parameters": {
+      "ionFlux": 12.0,
+      "etchantFlux": 1800.0,
+      "passivationFlux": 100.0,
+      "Ions.meanEnergy": 100.0,
+      "Ions.sigmaEnergy": 10.0,
+      "Ions.exponent": 7020.4326450570925,
+      "etchStopDepth": -400.0
+    }
+  },
+  "outputs": {
+    "label_counts_csv": "label_counts.csv",
+    "sdf_summary_json": "sdf/tsdf_summary.json",
+    "figures": [
+      "figures/sdf_channels_midz.png",
+      "figures/sdf_zero_band_scatter.png",
+      "figures/mesh_trisurf.png",
+      "figures/mesh_trisurf_topdown.png"
+    ]
+  }
+}
