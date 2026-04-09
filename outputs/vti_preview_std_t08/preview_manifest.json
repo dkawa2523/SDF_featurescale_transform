@@ -1,0 +1,222 @@
+{
+  "status": "OK",
+  "messages": [],
+  "input_path": "data/ataset_3d_test2/run_0000/vox_t08.vti",
+  "input_hash": "dc127124a9729ffad628b80fbf72a166173cdbbf8fee400012ba4a525f43ab17",
+  "source_array_name": "MaterialIds",
+  "converted_from_point": true,
+  "point_to_cell_policy": "nearest",
+  "material_policy": "full",
+  "mesh_mode": "material_shell",
+  "mesh_backend": "vtk",
+  "mesh_backend_used": "vtk",
+  "flat_layout_used": "vtk_x_fastest",
+  "material_ids_raw": [
+    0,
+    2,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "material_ids_converted": [
+    0,
+    2,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "selected_material_ids": [
+    0,
+    2,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "mid_indices_zyx": {
+    "z_mid": 137,
+    "y_mid": 49,
+    "x_mid": 49
+  },
+  "metrics": {
+    "slice": {
+      "x_mid": {
+        "iou": 1.0,
+        "dice": 1.0,
+        "boundary_chamfer_px": 0.0,
+        "label_drift_rate": 0.0
+      },
+      "y_mid": {
+        "iou": 1.0,
+        "dice": 1.0,
+        "boundary_chamfer_px": 0.0,
+        "label_drift_rate": 0.0
+      },
+      "z_mid": {
+        "iou": 1.0,
+        "dice": 1.0,
+        "boundary_chamfer_px": 0.0,
+        "label_drift_rate": 0.0
+      }
+    },
+    "global": {
+      "mean_iou": 1.0,
+      "mean_dice": 1.0,
+      "mean_boundary_chamfer_px": 0.0,
+      "pair_jaccard": 1.0,
+      "point_to_cell_match_vs_point_like_cell": 1.0,
+      "bbox_center_shift_nm": 0.0,
+      "bbox_size_l2_nm": 0.0
+    },
+    "pair_counts": {
+      "raw": {
+        "10-11": 4934,
+        "7-10": 2354,
+        "8-10": 253,
+        "8-11": 48,
+        "9-11": 8,
+        "9-10": 12,
+        "0-10": 7318,
+        "0-7": 2250,
+        "0-8": 137,
+        "0-9": 8,
+        "0-11": 36,
+        "2-11": 92,
+        "0-5": 15,
+        "0-2": 10689,
+        "0-6": 3,
+        "2-5": 10,
+        "2-6": 2,
+        "7-8": 140,
+        "8-9": 12,
+        "7-9": 8,
+        "5-6": 1
+      },
+      "converted": {
+        "10-11": 4934,
+        "7-10": 2354,
+        "8-10": 253,
+        "8-11": 48,
+        "9-11": 8,
+        "9-10": 12,
+        "0-10": 7318,
+        "0-7": 2250,
+        "0-8": 137,
+        "0-9": 8,
+        "0-11": 36,
+        "2-11": 92,
+        "0-5": 15,
+        "0-2": 10689,
+        "0-6": 3,
+        "2-5": 10,
+        "2-6": 2,
+        "7-8": 140,
+        "8-9": 12,
+        "7-9": 8,
+        "5-6": 1
+      }
+    }
+  },
+  "raw_bbox_nm": {
+    "min_zyx_nm": [
+      -398.0,
+      -98.0,
+      -98.0
+    ],
+    "max_zyx_nm": [
+      50.0,
+      98.0,
+      98.0
+    ]
+  },
+  "converted_bbox_nm": {
+    "min_zyx_nm": [
+      -398.0,
+      -98.0,
+      -98.0
+    ],
+    "max_zyx_nm": [
+      50.0,
+      98.0,
+      98.0
+    ]
+  },
+  "tsdf_shape": [
+    9,
+    274,
+    99,
+    99
+  ],
+  "mesh_faces_total": {
+    "raw_shells": 111612,
+    "converted_shells": 111612
+  },
+  "mesh_faces_plotted": {
+    "raw_shells": 111612,
+    "converted_shells": 111612
+  },
+  "outputs": {
+    "figures": [
+      "3d_converted_shell_translucent.png",
+      "3d_overlay_shell_translucent.png",
+      "3d_raw_shell_translucent.png",
+      "sdf_channels_xmid_full.png",
+      "sdf_channels_ymid_full.png",
+      "sdf_channels_zmid_full.png",
+      "sdf_minabs_xyz_mid.png",
+      "slice_x_mid_boundary_overlay.png",
+      "slice_x_mid_raw_vs_conv.png",
+      "slice_y_mid_boundary_overlay.png",
+      "slice_y_mid_raw_vs_conv.png",
+      "slice_z_mid_boundary_overlay.png",
+      "slice_z_mid_raw_vs_conv.png"
+    ],
+    "tables": [
+      "material_volume_compare.csv",
+      "slice_metrics.csv"
+    ],
+    "sdf": [
+      "sdf/sdf_summary_full.json",
+      "sdf/tsdf_full_stack.npy"
+    ]
+  },
+  "created_at": "2026-03-02T19:58:06.723391+00:00",
+  "generator_version": "0.1.0",
+  "source_location": "point",
+  "point_to_cell_drift_rate_vs_point_like_cell": 0.0,
+  "outside_material_id": 2,
+  "all_material_counts": {
+    "0": 243107,
+    "2": 482145,
+    "5": 5,
+    "6": 1,
+    "7": 2250,
+    "8": 137,
+    "9": 8,
+    "10": 1946006,
+    "11": 11815
+  },
+  "sdf": {
+    "backend": "scipy",
+    "shape": [
+      9,
+      274,
+      99,
+      99
+    ],
+    "mu_nm": 20.0,
+    "summary_json": "sdf/sdf_summary_full.json",
+    "stack_npy": "sdf/tsdf_full_stack.npy"
+  }
+}

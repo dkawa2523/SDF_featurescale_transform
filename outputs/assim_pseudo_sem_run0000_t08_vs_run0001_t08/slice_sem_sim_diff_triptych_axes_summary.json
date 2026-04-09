@@ -1,0 +1,40 @@
+{
+  "schema_version": "slice_sem_sim_diff_triptych_axes/v1",
+  "selected_material_id": 10,
+  "runs": [
+    "run_0000",
+    "run_0001"
+  ],
+  "outputs": {
+    "x": {
+      "slice_index": 56,
+      "coord_nm": 14.0,
+      "image": "slice_x_sem_sim_diff_triptych.png",
+      "sem_mask_sum": 19610,
+      "sim_mask_sum": 19345,
+      "iou": 0.9864864864864865,
+      "drift_rate": 0.009769225097692251,
+      "dice": 0.9931972789115646
+    },
+    "y": {
+      "slice_index": 56,
+      "coord_nm": 14.0,
+      "image": "slice_y_sem_sim_diff_triptych.png",
+      "sem_mask_sum": 19607,
+      "sim_mask_sum": 19341,
+      "iou": 0.9863321093431252,
+      "drift_rate": 0.009879820098798201,
+      "dice": 0.9931190305022081
+    },
+    "z": {
+      "slice_index": 121,
+      "coord_nm": -156.0,
+      "image": "slice_z_sem_sim_diff_triptych.png",
+      "sem_mask_sum": 9653,
+      "sim_mask_sum": 9594,
+      "iou": 0.9938879104941469,
+      "drift_rate": 0.006019793898581777,
+      "dice": 0.9969345872083961
+    }
+  }
+}

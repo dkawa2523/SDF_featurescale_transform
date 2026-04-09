@@ -1,0 +1,59 @@
+{
+  "ionAngleWidthDeg": 3.2735818994039665,
+  "ionExponent": 1833.4057869963312,
+  "maxBoundaryHits": 474,
+  "maxReflections": 74,
+  "dx_nm": 2.0,
+  "domain_xExtent_nm": 100.0,
+  "domain_yExtent_nm": 100.0,
+  "voxel_bounds_nm": [
+    -100.0,
+    100.0,
+    -100.0,
+    100.0,
+    -400.0,
+    150.0
+  ],
+  "total_duration_s": 24.0,
+  "n_snapshots": 8,
+  "segment_duration_s": 3.0,
+  "snapshot_times_s": [
+    0.0,
+    3.0,
+    6.0,
+    9.0,
+    12.0,
+    15.0,
+    18.0,
+    21.0,
+    24.0
+  ],
+  "raysPerPoint": 100,
+  "timeStepRatio": 0.4,
+  "rtMinNodeDistanceFactor": 0.15,
+  "covMaxIterations": 10,
+  "covTolerance": 0.001,
+  "outside_material_id": 2,
+  "expected_material_ids": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "sf6o2_parameters": {
+    "ionFlux": 12.0,
+    "etchantFlux": 1800.0,
+    "passivationFlux": 100.0,
+    "Ions.meanEnergy": 100.0,
+    "Ions.sigmaEnergy": 10.0,
+    "Ions.exponent": 1833.4057869963312,
+    "etchStopDepth": -400.0
+  }
+}

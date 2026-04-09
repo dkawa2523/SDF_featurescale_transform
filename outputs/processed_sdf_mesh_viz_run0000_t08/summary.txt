@@ -1,0 +1,7 @@
+source=data/ataset_3d_test2/run_0000/vox_t08.vti
+selected_material_ids=[2, 10, 0, 11, 7]
+tsdf_shape=(5, 274, 99, 99)
+mesh_vertices=114143
+mesh_faces=231799
+sdf_band_fraction=0.5923233663777792
+mesh_exposed_face_ratio=0.3042636215686798

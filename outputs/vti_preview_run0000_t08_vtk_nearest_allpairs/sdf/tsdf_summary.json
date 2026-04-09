@@ -1,0 +1,35 @@
+{
+  "shape": [
+    5,
+    274,
+    99,
+    99
+  ],
+  "dtype": "float16",
+  "mu_nm": 20.0,
+  "selected_material_ids": [
+    2,
+    10,
+    0,
+    11,
+    7
+  ],
+  "qa": {
+    "tsdf_min": -1.0,
+    "tsdf_max": 1.0,
+    "nan_count": 0,
+    "inf_count": 0,
+    "band_fraction": 0.5923233663777792,
+    "present_materials": {
+      "2": true,
+      "10": true,
+      "0": true,
+      "11": true,
+      "7": true
+    },
+    "grad_mag_mean": 1.145918369293213,
+    "grad_mag_std": 1.4837639331817627,
+    "grad_unit_error_rate": 0.31145637464488213,
+    "notes": []
+  }
+}

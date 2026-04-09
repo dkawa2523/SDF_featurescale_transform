@@ -1,0 +1,25 @@
+{
+  "shape": [
+    9,
+    274,
+    99,
+    99
+  ],
+  "dtype": "float32",
+  "mu_nm": 20.0,
+  "material_ids": [
+    0,
+    2,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "tsdf_min": -1.0,
+  "tsdf_max": 1.0,
+  "nan_count": 0,
+  "inf_count": 0
+}

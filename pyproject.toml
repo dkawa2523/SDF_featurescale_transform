@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "wafergeo"
 version = "0.1.0"
 description = "Artifact-driven wafer geometry core scaffolding"
-readme = "0_design.md"
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "numpy>=1.25",

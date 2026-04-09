@@ -1,0 +1,35 @@
+{
+  "input_path": "data/ataset_3d_test2/run_0000/vox_t08.vti",
+  "point_to_cell_policy": "nearest",
+  "selected_material_ids": [
+    2,
+    10,
+    0,
+    11,
+    7
+  ],
+  "mid_indices_zyx": {
+    "zmid": 137,
+    "ymid": 49,
+    "xmid": 49
+  },
+  "mid_coords_nm": {
+    "xmid_nm": 0.0,
+    "ymid_nm": 0.0,
+    "zmid_nm": -124.0
+  },
+  "mesh_faces": 219774,
+  "mesh_vertices": 114143,
+  "sdf_shape": [
+    5,
+    274,
+    99,
+    99
+  ],
+  "outputs": [
+    "converted_sdf_minabs_orthogonal_mid.png",
+    "converted_sdf_label_orthogonal_mid.png",
+    "converted_mesh_translucent_3d.png",
+    "converted_mesh_orthogonal_mid_intersections.png"
+  ]
+}

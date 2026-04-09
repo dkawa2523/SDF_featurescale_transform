@@ -1,0 +1,17 @@
+{
+  "selected_material_id": 10,
+  "selected_z_index": 121,
+  "selected_coord_nm": -156.0,
+  "iou": 0.9938879104941469,
+  "drift_rate": 0.006019793898581777,
+  "sem_mask_sum": 9653,
+  "sim_mask_sum": 9594,
+  "output_image": "slice_sem_sim_diff_triptych.png",
+  "legend": {
+    "left": "Pseudo-SEM contour",
+    "middle": "Simulation shape",
+    "right_blue": "SEM only (missing in sim)",
+    "right_red": "Sim only (extra vs SEM)",
+    "right_gray": "same"
+  }
+}
