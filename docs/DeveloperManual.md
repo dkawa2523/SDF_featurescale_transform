@@ -11,7 +11,7 @@
 このコードの主目的は、simulation や実験由来の形状データを扱いやすい特徴量に変換し、
 必要に応じて形状比較の metric を計算することです。
 
-現在の正式 workflow は 3 つです。
+現在実装済みの正式 workflow は 3 つです。
 
 | workflow | 目的 |
 |---|---|
@@ -19,8 +19,8 @@
 | `compare` | simulation 1 件と target 1 件を比較する |
 | `batch-compare` | 複数 case を比較して ranking を出す |
 
-新しい手法を追加するときも、まずこの 3 つの workflow の中に入れられるかを考えます。
-新しい public pipeline は原則として増やしません。
+今後の workflow 拡張は [特徴量化・評価ロードマップ](WorkflowRoadmap.md) に従います。
+場当たり的に public pipeline を増やさず、特徴量化系と比較系の用途に沿って追加します。
 
 ## 2. 最初に読むファイル
 
@@ -113,7 +113,7 @@ metric が受け取る 2D 比較用特徴です。
 | `transform` の出力を増やす | `feature_outputs.py`, `transform_features.py` |
 | 比較 metric を増やす | `metric_*.py`, `metric_defs.py` |
 | metric の詳細 CSV/PNG を増やす | `output_artifacts.py` |
-| 実行 task を増やす | 原則やらない。必要なら設計判断が必要 |
+| 実行 task を増やす | `WorkflowRoadmap.md` にある計画済み workflow の範囲で追加する |
 
 ## 7. metric 追加の最小手順
 

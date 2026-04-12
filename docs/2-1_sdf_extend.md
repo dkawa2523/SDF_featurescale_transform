@@ -8,7 +8,7 @@
 4. core 関数が安定してから `transform` の feature 出力につなぐ。
 5. optional dependency が必要な場合は、分かりやすいエラーにする。
 
-SDF の variant だけのために新しい public pipeline は追加しません。
-まずは `features.use` または metric の追加で対応してください。
+SDF の variant は、まず `transform` 系の feature として追加します。
+今後の実装順は [特徴量化・評価ロードマップ](WorkflowRoadmap.md) を優先してください。
 
 scoring に関する処理は SDF 生成側ではなく `wafergeo.compare.metric_*` に置きます。

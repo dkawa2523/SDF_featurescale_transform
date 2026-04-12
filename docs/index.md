@@ -19,7 +19,7 @@
 | [保守運用ポリシー](MaintenancePolicy.md) | 改修者、Codex 利用者 | 設計の肥大化、過剰実装、過度なテストを防ぐルール |
 | [改良計画](ImprovementPlan.md) | 改修者、データサイエンティスト | 現在の設計を崩さずに進める機能改善ロードマップ |
 | [手法調査と実装計画](MethodResearch.md) | 改修者、データサイエンティスト | 新しい手法の効果、実装場所、検証方法を具体化 |
-| [実装リスク対策](RiskControlPlan.md) | 改修者、Codex 利用者 | 新手法を安全に実装するための段階ゲートと撤退基準 |
+| [実装リスク対策](RiskControlPlan.md) | 改修者、Codex 利用者 | 新手法を小さく実装するための最小ルール |
 | [実データ評価 smoke](RealDataEvaluation.md) | 改修者 | 実データに近い dataset で metric 退行を確認する開発者向け手順 |
 
 ## 正式な利用導線

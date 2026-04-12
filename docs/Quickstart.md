@@ -21,7 +21,7 @@ python -m pip install -e ".[scipy,vtk,viz,dev]"
 
 ## 2. まず example を実行する
 
-正式な実行入口は次の 3 つだけです。
+現在実装済みの実行入口は次の 3 つです。
 
 ```powershell
 python -m wafergeo run transform --config .\configs\examples\transform.simple.yaml

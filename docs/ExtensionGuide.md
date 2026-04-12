@@ -1,12 +1,12 @@
 # 拡張ガイド
 
 この資料は、新しい loader / feature / metric を追加する開発者向けです。
-目的は、公開 workflow を複雑にせずに手法を追加できる状態を保つことです。
+目的は、入口と出口を複雑にせずに手法を追加できる状態を保つことです。
 
 初めてコード全体を読む場合は、先に [DeveloperManual.md](DeveloperManual.md) を読んでください。
 この資料は、具体的な追加作業の手順書です。
 
-正式 CLI は変えません。
+現在実装済みの CLI は次の 3 つです。
 
 ```text
 python -m wafergeo run transform --config <yaml>
@@ -14,8 +14,9 @@ python -m wafergeo run compare --config <yaml>
 python -m wafergeo run batch-compare --config <yaml>
 ```
 
-新しい手法を追加するときは、まず既存の YAML block に追加できるかを考えます。
-新しい public task は最後の手段です。
+今後の `batch-transform`, `transform-eval`, `compare-eval` は
+[特徴量化・評価ロードマップ](WorkflowRoadmap.md) に従って追加します。
+新しい手法そのものは、まず既存の YAML block に追加できるかを考えます。
 
 ## 基本ルール
 
@@ -181,7 +182,7 @@ py -3.13 -m mypy wafergeo
 py -3.13 -m pytest -q
 ```
 
-## 新しい public task を追加しない判断
+## public task を増やさない判断
 
 次のような理由だけでは、新しい task を増やさないでください。
 
@@ -193,8 +194,8 @@ py -3.13 -m pytest -q
 
 これらは loader / feature / metric / output artifact として追加します。
 
-新しい task を検討するのは、入力、処理、出力、ユーザー workflow が
-`transform`, `compare`, `batch-compare` と明確に違う場合だけです。
+新しい task を検討するのは、`WorkflowRoadmap.md` にある計画済み workflow を実装する場合だけです。
+それ以外の要望は、loader / feature / metric / output として追加します。
 
 ## `profile` metric を例にした追加方針
 

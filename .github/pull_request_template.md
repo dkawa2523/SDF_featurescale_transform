@@ -5,8 +5,9 @@
 
 ## Scope Guard
 
-- [ ] Public workflows are still only `transform`, `compare`, and `batch-compare`.
-- [ ] YAML top-level shape remains `task / input / view / features / metrics / output`.
+- [ ] Public workflows stay within `docs/WorkflowRoadmap.md`.
+- [ ] Normal YAML top-level shape remains `task / input / view / features / metrics / output`.
+- [ ] Eval YAML uses only the planned `eval.candidates` extension.
 - [ ] No manifest/report/surrogate/assimilation/benchmark/preview/audit concepts were reintroduced.
 - [ ] New logic is contained in the appropriate layer: loader / feature / metric / output / docs / tests.
 - [ ] Runner and CLI orchestration do not contain metric math or feature algorithms.
@@ -14,7 +15,7 @@
 ## User Simplicity
 
 - [ ] Normal examples still start from `metrics.use: [cd, sdf, iou]`.
-- [ ] Diagnostic metrics are opt-in and documented in `docs/Scoring.md`.
+- [ ] New features or metrics are opt-in and documented.
 - [ ] New outputs are CSV/JSON first; PNG is only a lightweight helper.
 - [ ] No generated `outputs/`, `site/`, or cache files are committed.
 
