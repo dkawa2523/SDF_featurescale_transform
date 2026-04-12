@@ -6,6 +6,7 @@ import math
 from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 
@@ -22,6 +23,16 @@ def _as_float(value: object, default: float = 0.0) -> float:
         return default
 
 
+def _iter_metric_detail_rows(
+    metric_details: Iterable[dict[str, object]],
+) -> list[dict[str, object]]:
+    rows = list(metric_details)
+    if len(rows) == 1 and isinstance(rows[0].get("details"), list):
+        nested = cast(list[object], rows[0]["details"])
+        return [row for row in nested if isinstance(row, dict)]
+    return rows
+
+
 def write_per_material_sdf_csv(
     path: str | Path,
     metric_details: Iterable[dict[str, object]],
@@ -29,7 +40,7 @@ def write_per_material_sdf_csv(
     case_id: str | None = None,
 ) -> bool:
     rows: list[dict[str, object]] = []
-    for detail in metric_details:
+    for detail in _iter_metric_detail_rows(metric_details):
         if detail.get("metric") != "sdf_material":
             continue
         per_material = detail.get("per_material", [])

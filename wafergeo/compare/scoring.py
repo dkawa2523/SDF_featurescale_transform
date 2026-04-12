@@ -64,6 +64,45 @@ class ScoreResult:
         return payload
 
 
+def _compact_detail_summary(row: MetricRow, detail: dict[str, object]) -> dict[str, object]:
+    summary: dict[str, object] = {
+        "metric": row.name,
+        "status": row.status,
+        "loss": row.loss,
+        "value": row.value,
+    }
+    for key in (
+        "mode",
+        "selected_loss_source",
+        "selected_value_source",
+        "distance_semantics",
+        "skipped_reason",
+    ):
+        if key in detail:
+            summary[key] = detail[key]
+    return summary
+
+
+def _metric_details_payload(score: ScoreResult) -> dict[str, object]:
+    details_by_metric = {
+        str(detail.get("metric", "")): detail
+        for detail in score.metric_details
+        if detail.get("metric")
+    }
+    summary_rows = [
+        _compact_detail_summary(row, details_by_metric[row.name])
+        for row in score.metrics
+        if row.name in details_by_metric
+    ]
+    return {
+        "_summary": {
+            "metrics_with_details": [row["metric"] for row in summary_rows],
+            "rows": summary_rows,
+        },
+        "details": score.metric_details,
+    }
+
+
 def score_features(sim: ViewFeature, target: ViewFeature, metric_spec: MetricSpec) -> ScoreResult:
     rows: list[MetricRow] = []
     cd_profile: list[dict[str, float]] = []
@@ -147,7 +186,7 @@ def write_score_outputs(score: ScoreResult, output_dir: Path) -> None:
             writer.writerow(row.to_dict())
     if score.metric_details:
         (output_dir / "metric_details.json").write_text(
-            json.dumps(score.metric_details, ensure_ascii=True, indent=2, sort_keys=True),
+            json.dumps(_metric_details_payload(score), ensure_ascii=True, indent=2, sort_keys=True),
             encoding="utf-8",
         )
     if score.cd_profile:

@@ -54,6 +54,10 @@ metrics:
 診断 metric は「全部を常に入れる」ものではありません。
 score の主軸を分かりやすく保つため、必要な症状に合わせて追加してください。
 
+`metric_details.json` は、最初に `_summary`、次に詳細な `details` を持ちます。
+まず `_summary.rows` で各 metric の `mode`, `status`, `selected_loss_source` を見て、
+必要な metric だけ `details` の内訳を確認します。
+
 ## CD
 
 CD は、半導体断面で高さごとの幅や edge 位置を見る metric です。

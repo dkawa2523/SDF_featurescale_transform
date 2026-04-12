@@ -25,6 +25,16 @@ from wafergeo.compare import run_compare_from_config
 from wafergeo.compare.schema import load_compare_spec_yaml
 
 
+def _read_metric_details(path: Path) -> list[dict[str, object]]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, dict)]
+    details = payload.get("details", [])
+    if not isinstance(details, list):
+        return []
+    return [row for row in details if isinstance(row, dict)]
+
+
 def test_compare_outputs_scores_and_difference(tmp_path: Path) -> None:
     sim = write_npz(tmp_path / "sim.npz")
     target = write_contour(tmp_path / "target.json")
@@ -58,6 +68,9 @@ def test_compare_outputs_scores_and_difference(tmp_path: Path) -> None:
     assert "normalized_total_score" in score
     assert all("normalized_loss" in row for row in score["metrics"])
     assert {row["metric"] for row in score["metric_details"]} == {"sdf", "iou"}
+    details_payload = json.loads((out / "metric_details.json").read_text(encoding="utf-8"))
+    assert details_payload["_summary"]["metrics_with_details"] == ["sdf", "iou"]
+    assert {row["metric"] for row in details_payload["details"]} == {"sdf", "iou"}
     diff_summary = json.loads((out / "difference_summary.json").read_text(encoding="utf-8"))
     assert int(diff_summary["height"]) > 0
     assert int(diff_summary["width"]) > 0
@@ -180,7 +193,7 @@ output:
     assert metrics["sdf_band"]["status"] == "OK"
     assert metrics["iou"]["status"] == "SKIPPED"
     assert "iou" in score["skipped_metrics"]
-    details = json.loads((out / "metric_details.json").read_text(encoding="utf-8"))
+    details = _read_metric_details(out / "metric_details.json")
     details_by_metric = {row["metric"]: row for row in details}
     assert details_by_metric["sdf"]["distance_semantics"] == "unsigned"
     assert details_by_metric["sdf_band"]["distance_semantics"] == "unsigned"
@@ -218,7 +231,7 @@ def test_compare_accepts_label_target_and_self_score_is_best(tmp_path: Path) -> 
     assert float(shifted_metrics["sdf"]["loss"]) > 0.0
     assert (tmp_path / "self" / "material_confusion.csv").exists()
     assert (tmp_path / "self" / "material_confusion_summary.json").exists()
-    shifted_details = json.loads((tmp_path / "shifted" / "metric_details.json").read_text())
+    shifted_details = _read_metric_details(tmp_path / "shifted" / "metric_details.json")
     details_by_metric = {row["metric"]: row for row in shifted_details}
     assert details_by_metric["sdf"]["mask_sdf_loss_nm"] > 0.0
     assert details_by_metric["iou"]["label_iou"] < 1.0
@@ -303,7 +316,7 @@ output:
 
     score = json.loads((out / "score.json").read_text(encoding="utf-8"))
     metrics = {row["name"]: row for row in score["metrics"]}
-    details = json.loads((out / "metric_details.json").read_text(encoding="utf-8"))
+    details = _read_metric_details(out / "metric_details.json")
     assert metrics["sdf_band"]["status"] == "OK"
     assert float(metrics["sdf_band"]["loss"]) > 0.0
     assert details[0]["metric"] == "sdf_band"
@@ -330,11 +343,7 @@ def test_compare_label_target_scores_material_id_mismatch(tmp_path: Path) -> Non
     assert float(metrics["chamfer"]["loss"]) == pytest.approx(0.0)
     assert float(metrics["sdf"]["loss"]) > 0.0
     assert float(metrics["iou"]["value"]) < 1.0
-    details = json.loads(
-        (tmp_path / "material_id_mismatch" / "metric_details.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    details = _read_metric_details(tmp_path / "material_id_mismatch" / "metric_details.json")
     details_by_metric = {row["metric"]: row for row in details}
     assert details_by_metric["sdf"]["selected_loss_source"] in {"label_sdf", "boundary_sdf"}
     assert details_by_metric["iou"]["label_iou"] < 1.0
@@ -390,7 +399,7 @@ output:
 
     score = json.loads((out / "score.json").read_text(encoding="utf-8"))
     metrics = {row["name"]: row for row in score["metrics"]}
-    details = json.loads((out / "metric_details.json").read_text(encoding="utf-8"))
+    details = _read_metric_details(out / "metric_details.json")
     assert metrics["sdf_material"]["status"] == "OK"
     assert float(metrics["sdf_material"]["loss"]) > 0.0
     assert details[0]["metric"] == "sdf_material"
@@ -435,7 +444,7 @@ output:
 
     score = json.loads((out / "score.json").read_text(encoding="utf-8"))
     metrics = {row["name"]: row for row in score["metrics"]}
-    details = json.loads((out / "metric_details.json").read_text(encoding="utf-8"))
+    details = _read_metric_details(out / "metric_details.json")
     assert metrics["sdf_material"]["status"] == "OK"
     assert float(metrics["sdf_material"]["loss"]) > 0.0
     assert details[0]["mask_source"] == "projected_material_masks"
