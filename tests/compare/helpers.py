@@ -99,6 +99,37 @@ def write_cd_material_feature_npz(
     return path
 
 
+def write_corner_npz(path: Path, *, bottom_shift_x: int = 0) -> Path:
+    labels = np.zeros((9, 5, 6), dtype=np.uint8)
+    labels[2 + bottom_shift_x : 7 + bottom_shift_x, :, 0:3] = 1
+    labels[3:6, :, 3:6] = 1
+    np.savez(
+        path,
+        labels=labels,
+        spacing=np.array([1.0, 1.0, 2.0], dtype=np.float32),
+        origin=np.array([0.0, 0.0, 0.0], dtype=np.float32),
+        material_ids=np.array([0, 1], dtype=np.int32),
+    )
+    return path
+
+
+def write_topology_npz(path: Path, *, split_material: bool = False) -> Path:
+    labels = np.zeros((8, 4, 4), dtype=np.uint8)
+    if split_material:
+        labels[1:3, :, 1:3] = 1
+        labels[5:7, :, 1:3] = 1
+    else:
+        labels[1:7, :, 1:3] = 1
+    np.savez(
+        path,
+        labels=labels,
+        spacing=np.array([1.0, 1.0, 1.0], dtype=np.float32),
+        origin=np.array([0.0, 0.0, 0.0], dtype=np.float32),
+        material_ids=np.array([0, 1], dtype=np.int32),
+    )
+    return path
+
+
 def write_contour(path: Path, *, shift_x: float = 0.0, units: str = "nm") -> Path:
     payload = {
         "schema_version": "contour/v1",
@@ -115,6 +146,28 @@ def write_contour(path: Path, *, shift_x: float = 0.0, units: str = "nm") -> Pat
                     [5.5 + shift_x, 1.5, 0.0],
                     [5.5 + shift_x, 5.5, 0.0],
                     [1.5 + shift_x, 5.5, 0.0],
+                ],
+            }
+        ],
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def write_open_contour(path: Path, *, shift_x: float = 0.0, units: str = "nm") -> Path:
+    payload = {
+        "schema_version": "contour/v1",
+        "units": units,
+        "coordinate_axes": ["x", "y", "z"],
+        "contours": [
+            {
+                "id": "open_edge",
+                "label": "open_edge",
+                "material_id": None,
+                "closed": False,
+                "points": [
+                    [2.0 + shift_x, 2.0, 0.0],
+                    [5.0 + shift_x, 5.0, 0.0],
                 ],
             }
         ],

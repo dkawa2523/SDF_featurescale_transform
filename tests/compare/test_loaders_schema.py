@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from tests.compare.helpers import write_contour, write_npz
+from tests.compare.helpers import write_contour, write_npz, write_open_contour
 from wafergeo.compare import (
     CONTOUR_LOADERS,
     LABEL_LOADERS,
@@ -98,6 +98,15 @@ def test_contour_json_loader_projects_xyz_and_units_override(tmp_path: Path) -> 
     np.testing.assert_allclose(data.contours[0].points_xy_nm[0], [1.5, 1.5])
 
 
+def test_contour_json_loader_preserves_open_contour_flag(tmp_path: Path) -> None:
+    contour = write_open_contour(tmp_path / "open_target.json")
+
+    data = load_contour_json(contour, view_axes=("x", "y"))
+
+    assert data.contours[0].closed is False
+    assert data.contours[0].points_xy_nm.shape == (2, 2)
+
+
 def test_contour_json_loader_rejects_bad_points(tmp_path: Path) -> None:
     path = tmp_path / "bad.json"
     path.write_text(
@@ -120,19 +129,28 @@ def test_public_registries_include_initial_methods() -> None:
     assert set(METRIC_DEFINITIONS) == {
         "cd",
         "chamfer",
+        "corner",
+        "profile",
         "sdf",
         "sdf_material",
         "sdf_band",
         "iou",
+        "topology",
     }
     assert METRIC_DEFINITIONS["cd"].required_features == frozenset({"contour"})
     assert METRIC_DEFINITIONS["chamfer"].required_features == frozenset({"contour"})
+    assert METRIC_DEFINITIONS["corner"].required_features == frozenset({"contour"})
+    assert METRIC_DEFINITIONS["profile"].required_features == frozenset({"contour"})
     assert METRIC_DEFINITIONS["sdf"].required_features == frozenset({"sdf"})
     assert METRIC_DEFINITIONS["sdf_material"].required_features == frozenset({"sdf"})
     assert METRIC_DEFINITIONS["sdf_band"].required_features == frozenset({"sdf"})
     assert METRIC_DEFINITIONS["iou"].required_features == frozenset()
+    assert METRIC_DEFINITIONS["topology"].required_features == frozenset()
     assert METRIC_DEFINITIONS["cd"].loss_scale == 10.0
+    assert METRIC_DEFINITIONS["corner"].loss_scale == 10.0
+    assert METRIC_DEFINITIONS["profile"].loss_scale == 10.0
     assert METRIC_DEFINITIONS["iou"].loss_scale == 1.0
+    assert METRIC_DEFINITIONS["topology"].loss_scale == 1.0
 
 
 def test_simple_yaml_rejects_wrong_task_and_unknown_feature(tmp_path: Path) -> None:
@@ -221,6 +239,28 @@ output:
     with pytest.raises(ValueError, match="compare does not support"):
         load_compare_spec_yaml(config)
 
+    sdf_views_config = tmp_path / "compare_sdf_views.yaml"
+    sdf_views_config.write_text(
+        """
+task: compare
+input:
+  simulation:
+    kind: npz_label
+    path: sim.npz
+  target:
+    kind: contour_json
+    path: target.json
+features:
+  use: [sdf_views]
+output:
+  dir: out
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="compare does not support"):
+        load_compare_spec_yaml(sdf_views_config)
+
 
 def test_compare_yaml_rejects_metric_without_required_feature(tmp_path: Path) -> None:
     compare_config = tmp_path / "compare_missing_contour.yaml"
@@ -265,6 +305,97 @@ output:
 
     with pytest.raises(ValueError, match="feature 'sdf' is required"):
         load_batch_compare_spec_yaml(batch_config)
+
+    compare_missing_profile = tmp_path / "compare_missing_profile_contour.yaml"
+    compare_missing_profile.write_text(
+        f"""
+task: compare
+input:
+  simulation:
+    kind: npz_label
+    path: {tmp_path / "sim.npz"}
+  target:
+    kind: npz_label
+    path: {tmp_path / "target.npz"}
+features:
+  use: [sdf]
+metrics:
+  use: [profile]
+output:
+  dir: {tmp_path / "out_profile"}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="feature 'contour' is required"):
+        load_compare_spec_yaml(compare_missing_profile)
+
+    compare_missing_corner = tmp_path / "compare_missing_corner_contour.yaml"
+    compare_missing_corner.write_text(
+        f"""
+task: compare
+input:
+  simulation:
+    kind: npz_label
+    path: {tmp_path / "sim.npz"}
+  target:
+    kind: npz_label
+    path: {tmp_path / "target.npz"}
+features:
+  use: [sdf]
+metrics:
+  use: [corner]
+output:
+  dir: {tmp_path / "out_corner"}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="feature 'contour' is required"):
+        load_compare_spec_yaml(compare_missing_corner)
+
+
+def test_compare_yaml_defaults_to_primary_metrics(tmp_path: Path) -> None:
+    config = tmp_path / "compare_default_metrics.yaml"
+    config.write_text(
+        f"""
+task: compare
+input:
+  simulation:
+    kind: npz_label
+    path: {tmp_path / "sim.npz"}
+  target:
+    kind: npz_label
+    path: {tmp_path / "target.npz"}
+features:
+  use: [sdf, contour]
+output:
+  dir: {tmp_path / "out"}
+""",
+        encoding="utf-8",
+    )
+
+    spec = load_compare_spec_yaml(config)
+
+    assert spec.metrics.use == ("cd", "sdf", "iou")
+
+    batch_config = tmp_path / "batch_default_metrics.yaml"
+    batch_config.write_text(
+        f"""
+task: batch-compare
+input:
+  index: {tmp_path / "pairs.csv"}
+features:
+  use: [sdf, contour]
+output:
+  dir: {tmp_path / "batch_out"}
+""",
+        encoding="utf-8",
+    )
+
+    batch_spec = load_batch_compare_spec_yaml(batch_config)
+
+    assert batch_spec.metrics.use == ("cd", "sdf", "iou")
 
 
 def test_compare_yaml_accepts_cd_gauge_and_rejects_view_mismatch(tmp_path: Path) -> None:

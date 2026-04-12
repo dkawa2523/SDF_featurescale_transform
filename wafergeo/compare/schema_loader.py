@@ -145,7 +145,7 @@ def _metrics(raw: dict[str, Any]) -> MetricSpec:
     return MetricSpec(
         use=tuple(
             cast(MetricName, str(v))
-            for v in _list(raw, "use", ["cd", "chamfer", "sdf", "iou"])
+            for v in _list(raw, "use", ["cd", "sdf", "iou"])
         ),
         weights={str(k): float(v) for k, v in weights_raw.items()},
         cd_material_ids=cd_material_ids,
@@ -209,7 +209,7 @@ def load_compare_spec_yaml(path: str | Path) -> CompareSpec:
     features = _features(_mapping(raw, "features", default={"use": ["sdf", "contour"]}))
     _require_allowed_features(features, task="compare", allowed={"sdf", "contour"})
     metrics = _metrics(
-        _mapping(raw, "metrics", default={"use": ["cd", "chamfer", "sdf", "iou"]})
+        _mapping(raw, "metrics", default={"use": ["cd", "sdf", "iou"]})
     )
     _require_metric_feature_dependencies(features, metrics)
     view = _view(_mapping(raw, "view", default={}))
@@ -232,7 +232,7 @@ def load_batch_compare_spec_yaml(path: str | Path) -> BatchCompareSpec:
     features = _features(_mapping(raw, "features", default={"use": ["sdf", "contour"]}))
     _require_allowed_features(features, task="batch-compare", allowed={"sdf", "contour"})
     metrics = _metrics(
-        _mapping(raw, "metrics", default={"use": ["cd", "chamfer", "sdf", "iou"]})
+        _mapping(raw, "metrics", default={"use": ["cd", "sdf", "iou"]})
     )
     _require_metric_feature_dependencies(features, metrics)
     view = _view(_mapping(raw, "view", default={}))

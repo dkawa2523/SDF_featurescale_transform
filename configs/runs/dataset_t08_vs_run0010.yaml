@@ -1,0 +1,19 @@
+task: batch-compare
+
+input:
+  index: dataset_t08_vs_run0010_pairs.csv
+
+view:
+  axes: [x, z]
+  depth_axis: y
+
+features:
+  use: [sdf, contour]
+
+metrics:
+  use: [cd, chamfer, profile, corner, sdf, sdf_material, sdf_band, iou, topology]
+
+output:
+  dir: ../../outputs/realdata_dataset_t08_vs_run0010
+  ranking: true
+  difference_images: true

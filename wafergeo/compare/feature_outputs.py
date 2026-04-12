@@ -7,7 +7,11 @@ from wafergeo.compare.features import (
     ViewFeature,
     write_view_features,
 )
-from wafergeo.compare.transform_features import write_label_sdf_feature, write_mesh_feature
+from wafergeo.compare.transform_features import (
+    write_label_sdf_feature,
+    write_mesh_feature,
+    write_sdf_views_feature,
+)
 from wafergeo.core.types import LabelVolume
 
 TransformWriter = Callable[[LabelVolume, ViewFeature, Path], dict[str, str]]
@@ -67,6 +71,14 @@ def _write_transform_sdf3d(
     return {"sdf3d": write_label_sdf_feature(label, output_dir)}
 
 
+def _write_transform_sdf_views(
+    _label: LabelVolume,
+    view_feature: ViewFeature,
+    output_dir: Path,
+) -> dict[str, str]:
+    return {"sdf_views": write_sdf_views_feature(view_feature, output_dir)}
+
+
 def _write_transform_mesh(
     label: LabelVolume,
     _view_feature: ViewFeature,
@@ -80,6 +92,7 @@ TRANSFORM_FEATURE_WRITERS: dict[str, TransformWriter] = {
     "contour": _write_transform_contour,
     "slice": _write_transform_slice,
     "sdf3d": _write_transform_sdf3d,
+    "sdf_views": _write_transform_sdf_views,
     "mesh": _write_transform_mesh,
 }
 

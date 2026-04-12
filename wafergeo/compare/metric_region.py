@@ -2,8 +2,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from wafergeo.compare.features import ViewFeature, signed_distance_from_mask_2d
+from wafergeo.compare.features import ViewFeature
 from wafergeo.compare.metric_types import MetricComputation, MetricContext
+from wafergeo.compare.sdf_helpers import (
+    clipped_signed_distance_from_mask_2d,
+    signed_distance_from_mask_2d,
+    unsigned_distance_from_mask_2d,
+)
 
 NARROW_BAND_NM = 10.0
 
@@ -16,13 +21,20 @@ def _view_diagonal_nm(feature: ViewFeature) -> float:
     return float(max(np.hypot(dy, dx), 1.0))
 
 
-def _stable_signed_distance(
-    mask: np.ndarray,
-    spacing: tuple[float, float],
-    cap_nm: float,
-) -> np.ndarray:
-    sdf = signed_distance_from_mask_2d(mask, spacing)
-    return np.clip(sdf, -float(cap_nm), float(cap_nm)).astype(np.float32, copy=False)
+def _has_open_contour(feature: ViewFeature) -> bool:
+    return feature.source == "contour" and any(
+        not contour.closed for contour in feature.contours.contours
+    )
+
+
+def _unsigned_boundary_distance(feature: ViewFeature) -> np.ndarray:
+    spacing = (float(feature.grid2d.spacing[0]), float(feature.grid2d.spacing[1]))
+    boundary = (
+        np.asarray(feature.boundary_mask, dtype=bool)
+        if feature.boundary_mask is not None and np.any(feature.boundary_mask)
+        else np.asarray(feature.mask, dtype=bool)
+    )
+    return unsigned_distance_from_mask_2d(boundary, spacing)
 
 
 def _mask_iou(lhs: np.ndarray, rhs: np.ndarray) -> float:
@@ -98,6 +110,32 @@ def _narrow_band_sdf_loss(
         "mode": "mask_sdf_band",
         "selected_loss_source": "mask_sdf_band",
     }
+    if _has_open_contour(sim) or _has_open_contour(target):
+        sim_distance = _unsigned_boundary_distance(sim)
+        target_distance = _unsigned_boundary_distance(target)
+        band = (sim_distance <= float(band_nm)) | (target_distance <= float(band_nm))
+        count = int(band.sum())
+        if count == 0:
+            details.update(
+                {
+                    "mode": "open_contour_unsigned_distance_band",
+                    "distance_semantics": "unsigned",
+                    "selected_loss_source": "open_contour_unsigned_distance_band",
+                    "skipped_reason": "narrow band has no pixels",
+                }
+            )
+            return 0.0, "SKIPPED", details
+        value = float(np.mean(np.abs(sim_distance[band] - target_distance[band])))
+        details.update(
+            {
+                "mode": "open_contour_unsigned_distance_band",
+                "distance_semantics": "unsigned",
+                "selected_loss_source": "open_contour_unsigned_distance_band",
+                "band_pixel_count": count,
+                "unsigned_distance_band_loss_nm": value,
+            }
+        )
+        return value, "OK", details
     if sim.source == "label_volume" and target.source == "label_volume":
         sim_boundary = (
             np.asarray(sim.boundary_mask, dtype=bool) if sim.boundary_mask is not None else None
@@ -149,6 +187,17 @@ def _narrow_band_sdf_loss(
 def _sdf_loss(sim: ViewFeature, target: ViewFeature) -> tuple[float, dict[str, object]]:
     sim_labels = np.asarray(sim.label2d)
     target_labels = np.asarray(target.label2d)
+    if _has_open_contour(sim) or _has_open_contour(target):
+        sim_distance = _unsigned_boundary_distance(sim)
+        target_distance = _unsigned_boundary_distance(target)
+        value = float(np.mean(np.abs(sim_distance - target_distance)))
+        return value, {
+            "metric": "sdf",
+            "mode": "open_contour_unsigned_distance",
+            "distance_semantics": "unsigned",
+            "selected_loss_source": "open_contour_unsigned_distance",
+            "unsigned_distance_loss_nm": value,
+        }
     if sim.source != "label_volume" or target.source != "label_volume":
         sdf_delta = sim.sdf_nm.astype(np.float32) - target.sdf_nm.astype(np.float32)
         value = float(np.mean(np.abs(sdf_delta)))
@@ -249,8 +298,16 @@ def _material_sdf_loss(
     for label in labels:
         sim_mask = np.asarray(sim_masks.get(int(label), empty), dtype=bool)
         target_mask = np.asarray(target_masks.get(int(label), empty), dtype=bool)
-        sim_sdf = _stable_signed_distance(sim_mask, spacing, cap_nm)
-        target_sdf = _stable_signed_distance(target_mask, spacing, cap_nm)
+        sim_sdf = clipped_signed_distance_from_mask_2d(
+            sim_mask,
+            spacing,
+            clip_nm=cap_nm,
+        )
+        target_sdf = clipped_signed_distance_from_mask_2d(
+            target_mask,
+            spacing,
+            clip_nm=cap_nm,
+        )
         loss = float(np.mean(np.abs(sim_sdf - target_sdf)))
         union_pixels = int(np.logical_or(sim_mask, target_mask).sum())
         losses.append(loss)
@@ -362,5 +419,17 @@ def compute_iou(
     target: ViewFeature,
     _context: MetricContext,
 ) -> MetricComputation:
+    if _has_open_contour(sim) or _has_open_contour(target):
+        return MetricComputation(
+            name="iou",
+            loss=0.0,
+            value=0.0,
+            status="SKIPPED",
+            details={
+                "metric": "iou",
+                "mode": "open_contour",
+                "skipped_reason": "IoU is not defined for open contour targets",
+            },
+        )
     value, details = _feature_iou(sim, target)
     return MetricComputation(name="iou", loss=float(1.0 - value), value=value, details=details)

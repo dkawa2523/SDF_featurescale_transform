@@ -51,7 +51,7 @@ features:
   use: [sdf, contour]
 
 metrics:
-  use: [cd, chamfer, sdf, sdf_material, sdf_band, iou]
+  use: [cd, sdf, iou]
 
 output:
   dir: outputs/compare_case001

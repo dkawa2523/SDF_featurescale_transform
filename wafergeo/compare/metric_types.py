@@ -15,6 +15,9 @@ class MetricComputation:
     details: dict[str, object] | None = None
     cd_profile: list[dict[str, float]] = field(default_factory=list)
     cd_profile_summary: dict[str, object] | None = None
+    profile_rows: list[dict[str, float]] = field(default_factory=list)
+    profile_summary: dict[str, object] | None = None
+    corner_summary: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)

@@ -22,6 +22,7 @@ from wafergeo.compare.loader import (
 from wafergeo.compare.output_artifacts import (
     write_cd_profile_png,
     write_label_preview_png,
+    write_material_confusion_outputs,
     write_per_material_sdf_csv,
 )
 from wafergeo.compare.render import (
@@ -337,6 +338,11 @@ def run_compare_spec(
     score = score_features(sim_feature, target_feature, spec.metrics)
     write_score_outputs(score, output_dir)
     write_per_material_sdf_csv(output_dir / "per_material_sdf.csv", score.metric_details)
+    write_material_confusion_outputs(
+        output_dir,
+        sim_feature=sim_feature,
+        target_feature=target_feature,
+    )
     write_cd_profile_png(output_dir / "cd_profile.png", score.cd_profile)
     sim_summary_file = _write_input_summary(
         output_dir=output_dir,

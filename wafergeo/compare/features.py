@@ -8,6 +8,10 @@ from typing import Literal
 import numpy as np
 
 from wafergeo.compare.loader import ContourData, ContourItem, contour_data_to_json
+from wafergeo.compare.sdf_helpers import (
+    signed_distance_from_mask_2d,
+    unsigned_distance_from_mask_2d,
+)
 from wafergeo.core.grid import GridSpec
 from wafergeo.core.types import LabelVolume
 
@@ -26,37 +30,6 @@ class ViewFeature:
     boundary_mask: np.ndarray | None = None
     void_id: int = 0
     material_masks: dict[int, np.ndarray] | None = None
-
-
-def _distance_transform(mask: np.ndarray, sampling_yx: tuple[float, float]) -> np.ndarray:
-    try:
-        from scipy.ndimage import distance_transform_edt
-    except ImportError:
-        yy, xx = np.meshgrid(
-            np.arange(mask.shape[0], dtype=np.float32),
-            np.arange(mask.shape[1], dtype=np.float32),
-            indexing="ij",
-        )
-        true_rows, true_cols = np.nonzero(mask)
-        true_points = np.column_stack([true_rows, true_cols]).astype(np.float32, copy=False)
-        if true_points.size == 0:
-            return np.full(mask.shape, np.inf, dtype=np.float32)
-        dy = (yy[..., None] - true_points[:, 0]) * float(sampling_yx[0])
-        dx = (xx[..., None] - true_points[:, 1]) * float(sampling_yx[1])
-        return np.sqrt(np.min(dy * dy + dx * dx, axis=-1)).astype(np.float32)
-    return distance_transform_edt(mask, sampling=sampling_yx).astype(np.float32)
-
-
-def signed_distance_from_mask_2d(mask: np.ndarray, spacing_yx: tuple[float, float]) -> np.ndarray:
-    binary = np.asarray(mask, dtype=bool)
-    if not np.any(binary):
-        return np.full(binary.shape, 1e6, dtype=np.float32)
-    if np.all(binary):
-        return np.full(binary.shape, -1e6, dtype=np.float32)
-    outside = _distance_transform(~binary, spacing_yx)
-    inside = _distance_transform(binary, spacing_yx)
-    return (outside - inside).astype(np.float32)
-
 
 def _project_mask(
     label: LabelVolume,
@@ -314,13 +287,19 @@ def contour_feature_on_grid(
 ) -> ViewFeature:
     mask = np.zeros(shape_yx, dtype=bool)
     boundary_mask = np.zeros(shape_yx, dtype=bool)
+    has_open_contour = any(not contour.closed for contour in data.contours)
     for contour in data.contours:
         if contour.closed and contour.points_xy_nm.shape[0] >= 3:
             mask |= _polygon_mask(contour.points_xy_nm, grid2d, shape_yx)
         boundary_mask |= _draw_polyline_mask(contour.points_xy_nm, grid2d, shape_yx)
     if not np.any(mask):
         mask = boundary_mask
-    sdf = signed_distance_from_mask_2d(mask, (float(grid2d.spacing[0]), float(grid2d.spacing[1])))
+    spacing_yx = (float(grid2d.spacing[0]), float(grid2d.spacing[1]))
+    sdf = (
+        unsigned_distance_from_mask_2d(boundary_mask, spacing_yx)
+        if has_open_contour
+        else signed_distance_from_mask_2d(mask, spacing_yx)
+    )
     return ViewFeature(
         mask=mask,
         grid2d=grid2d,

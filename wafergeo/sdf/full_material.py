@@ -2,16 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-
-def _require_scipy_distance_transform_edt():
-    try:
-        from scipy.ndimage import distance_transform_edt
-    except Exception as exc:  # pragma: no cover - env dependent
-        raise ImportError(
-            "scipy is required for full-material SDF. "
-            "Install with: pip install 'wafergeo[scipy]'"
-        ) from exc
-    return distance_transform_edt
+from wafergeo.sdf.backends.scipy_backend import scipy_edt_distance
+from wafergeo.sdf.tsdf import to_tsdf
 
 
 def build_full_material_sdf(
@@ -36,8 +28,6 @@ def build_full_material_sdf(
         if value <= 0.0 or not np.isfinite(value):
             raise ValueError(f"spacing_zyx[{i}] must be finite and >0, got {value}")
 
-    edt = _require_scipy_distance_transform_edt()
-
     zyx = label_zyx.shape
     out = np.empty((len(material_ids),) + zyx, dtype=np.float32)
     sampling = tuple(float(v) for v in spacing_zyx)
@@ -52,9 +42,9 @@ def build_full_material_sdf(
             continue
 
         # Signed distance in nm: inside negative, outside positive.
-        outside_nm = edt(~mask, sampling=sampling).astype(np.float32, copy=False)
-        inside_nm = edt(mask, sampling=sampling).astype(np.float32, copy=False)
+        outside_nm = scipy_edt_distance(~mask, sampling).astype(np.float32, copy=False)
+        inside_nm = scipy_edt_distance(mask, sampling).astype(np.float32, copy=False)
         phi_nm = outside_nm - inside_nm
-        out[channel] = np.clip(phi_nm, -mu_nm, mu_nm) / float(mu_nm)
+        out[channel] = to_tsdf(phi_nm, mu_nm, out_dtype=np.float32)
 
     return out.astype(np.float32, copy=False)

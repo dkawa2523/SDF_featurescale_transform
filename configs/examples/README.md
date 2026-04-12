@@ -13,10 +13,10 @@ inside a batch index CSV are resolved from the CSV file location.
 
 The compare examples use `[x,z]` because `cd` is a cross-section edge/width
 metric. Use `[x,y]` for top-view checks when you do not need CD.
-They also include `sdf_band`, which reuses the SDF feature but scores only a
-default 10 nm boundary neighborhood.
-`sdf_material` is included to report per-material SDF loss without requiring
-users to list material ids in YAML.
-Compare runs write `per_material_sdf.csv` when that metric is requested.
+
+The default example metric set is intentionally small: `cd`, `sdf`, and `iou`.
+Add `chamfer`, `sdf_material`, or `sdf_band` only when you need diagnostic
+detail. Compare runs write `per_material_sdf.csv` when `sdf_material` is
+requested.
 Batch runs write `metric_summary.csv` and `ranking_top.png` for quick checks;
 use the CSV files for downstream analysis.

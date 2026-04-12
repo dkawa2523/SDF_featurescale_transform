@@ -195,3 +195,79 @@ py -3.13 -m pytest -q
 
 新しい task を検討するのは、入力、処理、出力、ユーザー workflow が
 `transform`, `compare`, `batch-compare` と明確に違う場合だけです。
+
+## `profile` metric を例にした追加方針
+
+断面プロファイルのような新しい評価方法は、public workflow を増やさず `metrics.use` に1つ名前を追加する形にします。今回の `profile` は次の最小構成です。
+
+- metric 本体: `wafergeo.compare.metric_profile`
+- registry: `wafergeo.compare.metric_defs`
+- 出力: `profile.csv`, `profile_summary.json`
+- YAML: `metrics.use: [profile]`
+- default: 追加しない
+
+新しい metric も同じ考え方で、まず CSV/JSON で意味を説明できる小さな実装にしてください。PNG や追加 YAML は、実測で必要性が見えてから増やします。
+
+## open contour 対応を例にした既存仕様の拡張
+
+新しい workflow を作らず、既存の `contour_json` contract に `closed: false` を自然に使えるようにするのが基本方針です。
+
+- loader は `closed` flag を保持するだけにする。
+- feature は open contour を polygon mask にせず、polyline / boundary として扱う。
+- SDF 系 metric は unsigned distance として評価する。
+- 面積が定義できない metric、たとえば `iou` は `SKIPPED` にする。
+- docs には `SKIPPED` になる条件と `metric_details.json` の意味を書く。
+
+このように、入力 contract に既にある情報で表現できる場合は、YAML option を増やさず既存の loader / feature / metric の責務を少しだけ広げます。
+
+## material confusion を例にした診断出力の追加
+
+score に入れたいわけではなく、結果の解釈を助けたいだけの場合は metric を増やさず output artifact として追加します。
+
+- 実装場所は `output_artifacts.py` にする。
+- runner は writer を呼ぶだけにする。
+- YAML は増やさない。
+- 出力は CSV/JSON を主にする。
+- batch 集約が必要な場合も、case ごとの CSV を `case_id` 付きでまとめるだけにする。
+
+`material_confusion.csv` はこの方針の例です。`sdf_material` や `iou` の原因分析には有用ですが、total score には入れません。
+
+## `sdf_views` を例にした feature 出力の追加
+
+外部解析に使う特徴量は、metric ではなく `transform` の feature として追加します。`sdf_views` はその例です。
+
+- feature 名は `features.use` に追加する。
+- schema の `FEATURE_NAMES` に登録する。
+- 実装は `transform_features.py` に小さな writer として置く。
+- dispatch は `feature_outputs.py` に1行追加する。
+- 出力は `features/<name>.npz` のように self-contained にする。
+- `compare` の allowed feature には追加しない。評価と特徴量出力を混ぜないためです。
+
+この形にすると、第三者が新しい特徴量を追加しても runner / CLI / metric registry を触らずに済みます。
+
+## SDF helper を使う
+
+2D view 上で SDF や距離 map を使う場合は、`wafergeo.compare.sdf_helpers` を使います。
+
+- closed mask の距離比較には `signed_distance_from_mask_2d`
+- open contour や boundary line の距離比較には `unsigned_distance_from_mask_2d`
+- 外れ値を抑えたい material SDF には `clipped_signed_distance_from_mask_2d`
+- TSDF 派生特徴量には `tsdf_from_sdf_nm`
+
+helper は 2D `[Y,X]` mask、正の `spacing_yx`、正の `clip_nm` を明示的に検証します。
+新しい metric 側で同じ validation を重ねず、helper に任せてください。
+
+新しい metric や feature 内で直接 `scipy.ndimage.distance_transform_edt` を呼ばないでください。距離の符号、fallback、clip の意味が分散し、第三者が挙動を追いにくくなります。
+
+## `corner` metric を例にした局所形状 metric
+
+局所形状 metric は定義が膨らみやすいため、最初は検出対象を強く絞ります。`corner` はその例です。
+
+- metric 本体は `metric_corner.py` に置く。
+- registry は `metric_defs.py` に1件追加する。
+- YAML は `metrics.use: [corner]` だけにする。
+- 出力は `corner_summary.json` のみ。
+- 対象 view は `z` を含む断面だけにする。
+- corner radius, curvature, wall angle は別 issue に分ける。
+
+このように、局所形状の評価は「位置差だけ」「角度だけ」「曲率だけ」のように小さく分けて追加します。

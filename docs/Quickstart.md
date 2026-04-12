@@ -48,7 +48,7 @@ view:
   depth_axis: y
 
 metrics:
-  use: [cd, chamfer, sdf, sdf_material, sdf_band, iou]
+  use: [cd, sdf, iou]
 
 output:
   dir: outputs/compare_case001
@@ -69,7 +69,8 @@ output:
 - `metrics.csv`
 - `difference.png`
 - `cd_profile.png`
-- `per_material_sdf.csv`
+
+原因分析として `sdf_material` を追加した場合は、`per_material_sdf.csv` も確認します。
 
 `batch-compare` ではまず次を見ます。
 

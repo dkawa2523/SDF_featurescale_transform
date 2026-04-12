@@ -18,7 +18,12 @@ features:
   use: [sdf, contour]
 
 metrics:
-  use: [cd, chamfer, sdf, sdf_material, sdf_band, iou]
+  use: [cd, sdf, iou]
+  # Optional diagnostics:
+  # - chamfer: boundary point distance
+  # - sdf_material: per-material SDF loss
+  # - sdf_band: 10 nm boundary-neighborhood SDF loss
+  # use: [cd, sdf, iou, chamfer, sdf_material, sdf_band]
   # Optional: focus CD on selected label-volume materials.
   # If omitted, label-volume CD automatically scores internal material-boundary
   # transitions and records the default center-line width profile.

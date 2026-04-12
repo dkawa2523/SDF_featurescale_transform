@@ -40,6 +40,9 @@ class ScoreResult:
     metric_details: list[dict[str, object]] = field(default_factory=list)
     cd_profile: list[dict[str, float]] = field(default_factory=list)
     cd_profile_summary: dict[str, object] | None = None
+    profile_rows: list[dict[str, float]] = field(default_factory=list)
+    profile_summary: dict[str, object] | None = None
+    corner_summary: dict[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -54,6 +57,10 @@ class ScoreResult:
             payload["metric_details"] = self.metric_details
         if self.cd_profile_summary is not None:
             payload["cd_profile_summary"] = self.cd_profile_summary
+        if self.profile_summary is not None:
+            payload["profile_summary"] = self.profile_summary
+        if self.corner_summary is not None:
+            payload["corner_summary"] = self.corner_summary
         return payload
 
 
@@ -61,6 +68,9 @@ def score_features(sim: ViewFeature, target: ViewFeature, metric_spec: MetricSpe
     rows: list[MetricRow] = []
     cd_profile: list[dict[str, float]] = []
     cd_profile_summary: dict[str, object] | None = None
+    profile_rows: list[dict[str, float]] = []
+    profile_summary: dict[str, object] | None = None
+    corner_summary: dict[str, object] | None = None
     metric_details: list[dict[str, object]] = []
     cd_gauge = metric_spec.cd_gauge
     context = MetricContext(
@@ -78,6 +88,12 @@ def score_features(sim: ViewFeature, target: ViewFeature, metric_spec: MetricSpe
             cd_profile = computed.cd_profile
         if computed.cd_profile_summary is not None:
             cd_profile_summary = computed.cd_profile_summary
+        if computed.profile_rows:
+            profile_rows = computed.profile_rows
+        if computed.profile_summary is not None:
+            profile_summary = computed.profile_summary
+        if computed.corner_summary is not None:
+            corner_summary = computed.corner_summary
         if computed.details is not None:
             metric_details.append(computed.details)
         rows.append(
@@ -101,6 +117,9 @@ def score_features(sim: ViewFeature, target: ViewFeature, metric_spec: MetricSpe
         metric_details=metric_details,
         cd_profile=cd_profile,
         cd_profile_summary=cd_profile_summary,
+        profile_rows=profile_rows,
+        profile_summary=profile_summary,
+        corner_summary=corner_summary,
     )
 
 
@@ -158,5 +177,41 @@ def write_score_outputs(score: ScoreResult, output_dir: Path) -> None:
     if score.cd_profile_summary is not None:
         (output_dir / "cd_profile_summary.json").write_text(
             json.dumps(score.cd_profile_summary, ensure_ascii=True, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+    if score.profile_rows:
+        with (output_dir / "profile.csv").open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "height_nm",
+                    "sim_width_nm",
+                    "target_width_nm",
+                    "width_diff_nm",
+                    "width_abs_diff_nm",
+                    "sim_center_nm",
+                    "target_center_nm",
+                    "center_diff_nm",
+                    "center_abs_diff_nm",
+                    "sim_left_nm",
+                    "sim_right_nm",
+                    "target_left_nm",
+                    "target_right_nm",
+                    "left_diff_nm",
+                    "right_diff_nm",
+                    "edge_loss_nm",
+                ],
+            )
+            writer.writeheader()
+            for profile_row in score.profile_rows:
+                writer.writerow(profile_row)
+    if score.profile_summary is not None:
+        (output_dir / "profile_summary.json").write_text(
+            json.dumps(score.profile_summary, ensure_ascii=True, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+    if score.corner_summary is not None:
+        (output_dir / "corner_summary.json").write_text(
+            json.dumps(score.corner_summary, ensure_ascii=True, indent=2, sort_keys=True),
             encoding="utf-8",
         )

@@ -4,6 +4,7 @@ import csv
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from tests.compare.helpers import (
@@ -11,11 +12,14 @@ from tests.compare.helpers import (
     write_cd_opening_npz,
     write_compare_config,
     write_contour,
+    write_corner_npz,
     write_hidden_material_npz,
     write_internal_boundary_npz,
     write_label_target_compare_config,
     write_npz,
+    write_open_contour,
     write_swapped_material_npz,
+    write_topology_npz,
 )
 from wafergeo.compare import run_compare_from_config
 from wafergeo.compare.schema import load_compare_spec_yaml
@@ -44,6 +48,7 @@ def test_compare_outputs_scores_and_difference(tmp_path: Path) -> None:
     assert (out / "simulation_label_summary.json").exists()
     assert (out / "target_label_summary.json").exists()
     assert (out / "cd_profile_summary.json").exists()
+    assert not (out / "material_confusion.csv").exists()
     assert (out / "features" / "simulation_contours.json").exists()
     assert (out / "_run" / "used_config.yaml").exists()
 
@@ -60,6 +65,127 @@ def test_compare_outputs_scores_and_difference(tmp_path: Path) -> None:
     sim_summary = json.loads((out / "simulation_label_summary.json").read_text(encoding="utf-8"))
     assert sim_summary["label_volume"]["material_ids"] == [0, 1]
     assert sim_summary["view"]["axes"] == ["x", "y"]
+
+
+def test_compare_topology_self_comparison_is_zero(tmp_path: Path) -> None:
+    sim = write_topology_npz(tmp_path / "topology_self.npz")
+    out = tmp_path / "topology_self"
+    cfg = tmp_path / "topology_self.yaml"
+    cfg.write_text(
+        f"""
+task: compare
+input:
+  simulation:
+    kind: npz_label
+    path: {sim}
+  target:
+    kind: npz_label
+    path: {sim}
+view:
+  axes: [x, z]
+  depth_axis: y
+features:
+  use: [sdf]
+metrics:
+  use: [topology]
+output:
+  dir: {out}
+""",
+        encoding="utf-8",
+    )
+
+    run_compare_from_config(cfg)
+
+    score = json.loads((out / "score.json").read_text(encoding="utf-8"))
+    metrics = {row["name"]: row for row in score["metrics"]}
+    assert metrics["topology"]["status"] == "OK"
+    assert float(metrics["topology"]["loss"]) == pytest.approx(0.0)
+
+
+def test_compare_topology_detects_material_split(tmp_path: Path) -> None:
+    sim = write_topology_npz(tmp_path / "topology_split.npz", split_material=True)
+    target = write_topology_npz(tmp_path / "topology_connected.npz")
+    out = tmp_path / "topology_split"
+    cfg = tmp_path / "topology_split.yaml"
+    cfg.write_text(
+        f"""
+task: compare
+input:
+  simulation:
+    kind: npz_label
+    path: {sim}
+  target:
+    kind: npz_label
+    path: {target}
+view:
+  axes: [x, z]
+  depth_axis: y
+features:
+  use: [sdf]
+metrics:
+  use: [topology]
+output:
+  dir: {out}
+""",
+        encoding="utf-8",
+    )
+
+    run_compare_from_config(cfg)
+
+    score = json.loads((out / "score.json").read_text(encoding="utf-8"))
+    metrics = {row["name"]: row for row in score["metrics"]}
+    details = score["metric_details"][0]
+    assert metrics["topology"]["status"] == "OK"
+    assert float(metrics["topology"]["loss"]) > 0.0
+    assert details["metric"] == "topology"
+    assert details["mode"] == "projected_2d_component_count"
+
+
+def test_compare_open_contour_uses_unsigned_distance_and_skips_iou(tmp_path: Path) -> None:
+    sim = write_npz(tmp_path / "sim_open.npz")
+    target = write_open_contour(tmp_path / "target_open.json")
+    out = tmp_path / "open_contour"
+    cfg = tmp_path / "open_contour.yaml"
+    cfg.write_text(
+        f"""
+task: compare
+input:
+  simulation:
+    kind: npz_label
+    path: {sim}
+  target:
+    kind: contour_json
+    path: {target}
+    units: nm
+view:
+  axes: [x, y]
+  depth_axis: z
+features:
+  use: [sdf, contour]
+metrics:
+  use: [chamfer, sdf, sdf_band, iou]
+output:
+  dir: {out}
+  difference_image: true
+""",
+        encoding="utf-8",
+    )
+
+    run_compare_from_config(cfg)
+
+    score = json.loads((out / "score.json").read_text(encoding="utf-8"))
+    metrics = {row["name"]: row for row in score["metrics"]}
+    assert metrics["chamfer"]["status"] == "OK"
+    assert metrics["sdf"]["status"] == "OK"
+    assert metrics["sdf_band"]["status"] == "OK"
+    assert metrics["iou"]["status"] == "SKIPPED"
+    assert "iou" in score["skipped_metrics"]
+    details = json.loads((out / "metric_details.json").read_text(encoding="utf-8"))
+    details_by_metric = {row["metric"]: row for row in details}
+    assert details_by_metric["sdf"]["distance_semantics"] == "unsigned"
+    assert details_by_metric["sdf_band"]["distance_semantics"] == "unsigned"
+    target_sdf = np.load(out / "features" / "target_sdf.npz")
+    assert float(np.min(target_sdf["sdf_nm"])) >= 0.0
 
 
 def test_compare_accepts_label_target_and_self_score_is_best(tmp_path: Path) -> None:
@@ -90,6 +216,8 @@ def test_compare_accepts_label_target_and_self_score_is_best(tmp_path: Path) -> 
     assert float(metrics["sdf"]["loss"]) == pytest.approx(0.0)
     assert float(shifted_metrics["iou"]["value"]) < 1.0
     assert float(shifted_metrics["sdf"]["loss"]) > 0.0
+    assert (tmp_path / "self" / "material_confusion.csv").exists()
+    assert (tmp_path / "self" / "material_confusion_summary.json").exists()
     shifted_details = json.loads((tmp_path / "shifted" / "metric_details.json").read_text())
     details_by_metric = {row["metric"]: row for row in shifted_details}
     assert details_by_metric["sdf"]["mask_sdf_loss_nm"] > 0.0
@@ -210,6 +338,27 @@ def test_compare_label_target_scores_material_id_mismatch(tmp_path: Path) -> Non
     details_by_metric = {row["metric"]: row for row in details}
     assert details_by_metric["sdf"]["selected_loss_source"] in {"label_sdf", "boundary_sdf"}
     assert details_by_metric["iou"]["label_iou"] < 1.0
+    confusion_rows = list(
+        csv.DictReader(
+            (tmp_path / "material_id_mismatch" / "material_confusion.csv").open(
+                "r",
+                encoding="utf-8",
+            )
+        )
+    )
+    off_diagonal = [
+        row
+        for row in confusion_rows
+        if row["simulation_material_id"] != row["target_material_id"]
+    ]
+    assert off_diagonal
+    confusion_summary = json.loads(
+        (tmp_path / "material_id_mismatch" / "material_confusion_summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert confusion_summary["mismatching_pixels"] > 0
+    assert confusion_summary["major_confusion_pair"] is not None
 
 
 def test_compare_sdf_material_reports_auto_detected_material_losses(tmp_path: Path) -> None:
@@ -349,6 +498,167 @@ def test_compare_cd_measures_internal_material_width_profile(tmp_path: Path) -> 
     assert float(metrics["cd"]["loss"]) == pytest.approx(1.0)
     assert float(metrics["sdf"]["loss"]) > 0.0
     assert float(metrics["iou"]["value"]) < 1.0
+
+
+def test_compare_profile_metric_reports_width_and_center_profile(tmp_path: Path) -> None:
+    sim = write_cd_material_feature_npz(
+        tmp_path / "sim_profile.npz",
+        half_width=2,
+        center_offset=1,
+    )
+    target = write_cd_material_feature_npz(tmp_path / "target_profile.npz", half_width=1)
+    out = tmp_path / "profile"
+    cfg = tmp_path / "profile.yaml"
+    cfg.write_text(
+        f"""
+task: compare
+input:
+  simulation:
+    kind: npz_label
+    path: {sim}
+  target:
+    kind: npz_label
+    path: {target}
+view:
+  axes: [x, z]
+  depth_axis: y
+features:
+  use: [contour]
+metrics:
+  use: [profile]
+output:
+  dir: {out}
+""",
+        encoding="utf-8",
+    )
+
+    run_compare_from_config(cfg)
+
+    score = json.loads((out / "score.json").read_text(encoding="utf-8"))
+    metrics = {row["name"]: row for row in score["metrics"]}
+    assert metrics["profile"]["status"] == "OK"
+    assert float(metrics["profile"]["loss"]) == pytest.approx(2.0)
+    assert (out / "profile.csv").exists()
+    assert (out / "profile_summary.json").exists()
+    profile = list(csv.DictReader((out / "profile.csv").open("r", encoding="utf-8")))
+    summary = json.loads((out / "profile_summary.json").read_text(encoding="utf-8"))
+    assert profile
+    assert {float(row["width_abs_diff_nm"]) for row in profile} == {2.0}
+    assert {float(row["center_abs_diff_nm"]) for row in profile} == {1.0}
+    assert summary["status"] == "OK"
+    assert summary["selected_loss_source"] == "width_abs_diff_mean_nm"
+
+
+def test_compare_profile_metric_self_comparison_is_zero(tmp_path: Path) -> None:
+    sim = write_cd_material_feature_npz(tmp_path / "sim_profile_self.npz", half_width=1)
+    out = tmp_path / "profile_self"
+    cfg = tmp_path / "profile_self.yaml"
+    cfg.write_text(
+        f"""
+task: compare
+input:
+  simulation:
+    kind: npz_label
+    path: {sim}
+  target:
+    kind: npz_label
+    path: {sim}
+view:
+  axes: [x, z]
+  depth_axis: y
+features:
+  use: [contour]
+metrics:
+  use: [profile]
+output:
+  dir: {out}
+""",
+        encoding="utf-8",
+    )
+
+    run_compare_from_config(cfg)
+
+    score = json.loads((out / "score.json").read_text(encoding="utf-8"))
+    metrics = {row["name"]: row for row in score["metrics"]}
+    assert metrics["profile"]["status"] == "OK"
+    assert float(metrics["profile"]["loss"]) == pytest.approx(0.0)
+    summary = json.loads((out / "profile_summary.json").read_text(encoding="utf-8"))
+    assert summary["profile_loss_mean_nm"] == pytest.approx(0.0)
+
+
+def test_compare_corner_metric_reports_bottom_corner_shift(tmp_path: Path) -> None:
+    sim = write_corner_npz(tmp_path / "sim_corner.npz", bottom_shift_x=1)
+    target = write_corner_npz(tmp_path / "target_corner.npz", bottom_shift_x=0)
+    out = tmp_path / "corner"
+    cfg = tmp_path / "corner.yaml"
+    cfg.write_text(
+        f"""
+task: compare
+input:
+  simulation:
+    kind: npz_label
+    path: {sim}
+  target:
+    kind: npz_label
+    path: {target}
+view:
+  axes: [x, z]
+  depth_axis: y
+features:
+  use: [contour]
+metrics:
+  use: [corner]
+output:
+  dir: {out}
+""",
+        encoding="utf-8",
+    )
+
+    run_compare_from_config(cfg)
+
+    score = json.loads((out / "score.json").read_text(encoding="utf-8"))
+    metrics = {row["name"]: row for row in score["metrics"]}
+    assert metrics["corner"]["status"] == "OK"
+    assert float(metrics["corner"]["loss"]) == pytest.approx(1.0)
+    summary = json.loads((out / "corner_summary.json").read_text(encoding="utf-8"))
+    assert summary["status"] == "OK"
+    assert summary["left_error_nm"] == pytest.approx(1.0)
+    assert summary["right_error_nm"] == pytest.approx(1.0)
+
+
+def test_compare_corner_metric_self_comparison_is_zero(tmp_path: Path) -> None:
+    sim = write_corner_npz(tmp_path / "sim_corner_self.npz")
+    out = tmp_path / "corner_self"
+    cfg = tmp_path / "corner_self.yaml"
+    cfg.write_text(
+        f"""
+task: compare
+input:
+  simulation:
+    kind: npz_label
+    path: {sim}
+  target:
+    kind: npz_label
+    path: {sim}
+view:
+  axes: [x, z]
+  depth_axis: y
+features:
+  use: [contour]
+metrics:
+  use: [corner]
+output:
+  dir: {out}
+""",
+        encoding="utf-8",
+    )
+
+    run_compare_from_config(cfg)
+
+    score = json.loads((out / "score.json").read_text(encoding="utf-8"))
+    metrics = {row["name"]: row for row in score["metrics"]}
+    assert metrics["corner"]["status"] == "OK"
+    assert float(metrics["corner"]["loss"]) == pytest.approx(0.0)
 
 
 def test_compare_cd_can_focus_on_material_ids(tmp_path: Path) -> None:

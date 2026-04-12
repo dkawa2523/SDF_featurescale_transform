@@ -12,6 +12,8 @@ view:
 
 features:
   use: [sdf, mesh, contour, slice]
+  # Optional lightweight SDF-derived views for external analysis:
+  # use: [sdf_views]
 
 output:
   dir: ../../outputs/example_transform

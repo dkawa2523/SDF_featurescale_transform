@@ -104,7 +104,8 @@ are material labels and internal material geometry matters.
 
 `cd` is a cross-section critical-dimension profile metric. Select `[x,z]` or
 `[y,z]` in `view.axes` when using `cd`; top-view `[x,y]` comparisons should use
-`chamfer`, `sdf`, and `iou`. For label-volume targets, the default CD compares
+`sdf` and `iou` first, adding `chamfer` only when boundary-point diagnostics are
+needed. For label-volume targets, the default CD compares
 internal material-boundary positions by height and also records the center-line
 width profile, so it can catch internal shape shifts even when the outer width
 is unchanged. `metrics.cd.material_ids` can focus CD on a specific material.
@@ -112,7 +113,7 @@ Optional `metrics.cd.gauge` makes the CD measurement location explicit:
 
 ```yaml
 metrics:
-  use: [cd, chamfer, sdf, sdf_material, sdf_band, iou]
+  use: [cd, sdf, iou]
   cd:
     material_ids: [2]
     gauge:
@@ -132,6 +133,8 @@ Its total loss is weighted by projected union area so tiny materials do not
 dominate the ranking by default.
 `sdf_band` uses the existing SDF feature but scores only a default `10 nm`
 boundary neighborhood, which makes interface placement errors easier to see.
+Treat `chamfer`, `sdf_material`, `sdf_band`, `profile`, and `corner` as
+diagnostic additions rather than the first metric set to try.
 
 ## Outputs
 
@@ -182,6 +185,11 @@ files remain the authoritative data.
 an input contract and can be deleted when not needed.
 
 ## Development
+
+Before asking Codex or another coding agent to change the repository, read
+`AGENTS.md` and `docs/MaintenancePolicy.md`. The project should stay focused on
+the three public workflows and avoid reintroducing removed user-facing concepts
+such as manifest, report, surrogate, assimilation, benchmark, preview, or audit.
 
 Keep public concepts simple:
 

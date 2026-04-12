@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import math
 from collections import defaultdict
 from collections.abc import Iterable
@@ -8,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
+from wafergeo.compare.features import ViewFeature
 from wafergeo.compare.render import write_rgb_png
 
 
@@ -98,6 +100,99 @@ def write_metric_summary_csv(path: str | Path, metric_rows: Iterable[dict[str, o
         writer = csv.DictWriter(f, fieldnames=list(output_rows[0]))
         writer.writeheader()
         writer.writerows(output_rows)
+    return True
+
+
+def _material_confusion_rows(
+    sim_feature: ViewFeature,
+    target_feature: ViewFeature,
+) -> list[dict[str, object]]:
+    sim_labels = np.asarray(sim_feature.label2d)
+    target_labels = np.asarray(target_feature.label2d)
+    total_pixels = int(sim_labels.size)
+    sim_totals = {
+        int(label): int((sim_labels == label).sum())
+        for label in np.unique(sim_labels)
+    }
+    target_totals = {
+        int(label): int((target_labels == label).sum())
+        for label in np.unique(target_labels)
+    }
+    rows: list[dict[str, object]] = []
+    for sim_id in sorted(sim_totals):
+        sim_mask = sim_labels == sim_id
+        for target_id in sorted(target_totals):
+            pixels = int(np.logical_and(sim_mask, target_labels == target_id).sum())
+            if pixels == 0:
+                continue
+            rows.append(
+                {
+                    "simulation_material_id": sim_id,
+                    "target_material_id": target_id,
+                    "pixels": pixels,
+                    "fraction_of_total": float(pixels / total_pixels) if total_pixels else 0.0,
+                    "fraction_of_simulation_material": float(pixels / sim_totals[sim_id])
+                    if sim_totals[sim_id]
+                    else 0.0,
+                    "fraction_of_target_material": float(pixels / target_totals[target_id])
+                    if target_totals[target_id]
+                    else 0.0,
+                }
+            )
+    return rows
+
+
+def write_material_confusion_outputs(
+    output_dir: str | Path,
+    *,
+    sim_feature: ViewFeature,
+    target_feature: ViewFeature,
+) -> bool:
+    if sim_feature.source != "label_volume" or target_feature.source != "label_volume":
+        return False
+    if sim_feature.label2d.shape != target_feature.label2d.shape:
+        return False
+
+    output_path = Path(output_dir)
+    rows = _material_confusion_rows(sim_feature, target_feature)
+    if not rows:
+        return False
+
+    csv_path = output_path / "material_confusion.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with csv_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+    total_pixels = int(sim_feature.label2d.size)
+    matching_pixels = int(
+        np.sum(np.asarray(sim_feature.label2d) == np.asarray(target_feature.label2d))
+    )
+    mismatching_pixels = total_pixels - matching_pixels
+    off_diagonal = [
+        row
+        for row in rows
+        if row["simulation_material_id"] != row["target_material_id"]
+    ]
+    major_pair = (
+        max(off_diagonal, key=lambda row: _as_float(row["pixels"]))
+        if off_diagonal
+        else None
+    )
+    summary: dict[str, object] = {
+        "total_pixels": total_pixels,
+        "matching_pixels": matching_pixels,
+        "mismatching_pixels": mismatching_pixels,
+        "accuracy": float(matching_pixels / total_pixels) if total_pixels else 1.0,
+        "simulation_material_ids": sorted(int(v) for v in np.unique(sim_feature.label2d)),
+        "target_material_ids": sorted(int(v) for v in np.unique(target_feature.label2d)),
+        "major_confusion_pair": major_pair,
+    }
+    (output_path / "material_confusion_summary.json").write_text(
+        json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
     return True
 
 

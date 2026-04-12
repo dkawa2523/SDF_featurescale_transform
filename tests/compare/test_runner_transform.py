@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
+
 from tests.compare.helpers import write_npz
 from wafergeo.compare import run_transform_from_config
 
@@ -66,6 +68,44 @@ output:
 
     assert summary["features"] == {"sdf3d": "sdf.npz"}
     assert (out / "features" / "sdf.npz").exists()
+
+
+def test_transform_writes_sdf_views_only_when_requested(tmp_path: Path) -> None:
+    sim = write_npz(tmp_path / "sim_sdf_views.npz")
+    out = tmp_path / "transform_sdf_views"
+    cfg = tmp_path / "transform_sdf_views.yaml"
+    cfg.write_text(
+        f"""
+task: transform
+input:
+  simulation:
+    kind: npz_label
+    path: {sim}
+features:
+  use: [sdf_views]
+output:
+  dir: {out}
+""",
+        encoding="utf-8",
+    )
+
+    summary = run_transform_from_config(cfg)
+
+    assert summary["features"] == {"sdf_views": "sdf_views.npz"}
+    data = np.load(out / "features" / "sdf_views.npz")
+    assert set(data.files) == {
+        "sdf_nm",
+        "tsdf_10nm",
+        "tsdf_50nm",
+        "log_abs_sdf",
+        "mask",
+        "spacing",
+        "origin",
+    }
+    assert data["sdf_nm"].shape == data["mask"].shape
+    assert np.max(data["tsdf_10nm"]) <= 1.0
+    assert np.min(data["tsdf_10nm"]) >= -1.0
+    np.testing.assert_allclose(data["log_abs_sdf"], np.log1p(np.abs(data["sdf_nm"])))
 
 
 def test_transform_accepts_view_spec(tmp_path: Path) -> None:

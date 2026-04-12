@@ -91,7 +91,8 @@ view:
 
 CD を評価したい場合は、通常 `[x,z]` または `[y,z]` のように `z` を含む view を使います。
 Top view の `[x,y]` では高さ方向 CD が定義しにくいため、`cd` を外して
-`chamfer`, `sdf`, `sdf_material`, `sdf_band`, `iou` を使うのが分かりやすいです。
+`sdf`, `iou` から始めるのが分かりやすいです。境界点のずれを詳しく見たい場合だけ
+`chamfer` を追加します。
 
 ## 5. transform の YAML
 
@@ -129,6 +130,15 @@ output:
 
 `sdf` は軽量な 2D view SDF です。full 3D SDF が必要な場合だけ `sdf3d` を指定します。
 
+外部解析や学習用に SDF 派生特徴量をまとめて出したい場合は、任意 feature として `sdf_views` を指定します。
+
+```yaml
+features:
+  use: [sdf_views]
+```
+
+`features/sdf_views.npz` には `sdf_nm`, `tsdf_10nm`, `tsdf_50nm`, `log_abs_sdf`, `mask`, `spacing`, `origin` が入ります。これは `transform` 専用で、`compare` の score には影響しません。
+
 ## 6. compare の YAML
 
 simulation 1 件と target 1 件を比較する例です。
@@ -153,7 +163,7 @@ features:
   use: [sdf, contour]
 
 metrics:
-  use: [cd, chamfer, sdf, sdf_material, sdf_band, iou]
+  use: [cd, sdf, iou]
 
 output:
   dir: outputs/compare_case001
@@ -182,7 +192,7 @@ features:
   use: [sdf, contour]
 
 metrics:
-  use: [cd, chamfer, sdf, sdf_material, sdf_band, iou]
+  use: [cd, sdf, iou]
 
 output:
   dir: outputs/batch_compare_001
@@ -206,24 +216,24 @@ batch index CSV 内の相対パスは CSV ファイル基準です。
 | metric | 見ているもの | 使いどころ |
 |---|---|---|
 | `cd` | 高さごとの幅、edge 位置、material boundary transition | 半導体断面の CD 評価 |
-| `chamfer` | contour / boundary 点群の近傍距離 | 境界形状のずれ |
 | `sdf` | 2D SDF field と material boundary SDF | 全体的な形状差 |
-| `sdf_material` | material ごとの SDF 差 | どの媒質が差分に効いているか |
-| `sdf_band` | boundary 近傍 10 nm の SDF 差 | interface 近傍を重視した評価 |
 | `iou` | overlap | 一致率、重なり |
 
 最初は次の組み合わせを推奨します。
 
 ```yaml
 metrics:
-  use: [cd, chamfer, sdf, sdf_material, sdf_band, iou]
+  use: [cd, sdf, iou]
 ```
+
+原因分析を詳しくしたい場合だけ、`chamfer`, `sdf_material`, `sdf_band` を追加します。
+追加の診断 metric は [Scoring.md](Scoring.md) にまとめています。
 
 CD の測定位置を明示したい場合だけ `metrics.cd.gauge` を追加します。
 
 ```yaml
 metrics:
-  use: [cd, chamfer, sdf, sdf_material, sdf_band, iou]
+  use: [cd, sdf, iou]
   cd:
     material_ids: [2]
     gauge:
@@ -242,13 +252,15 @@ metrics:
 | `score.json` | 総合 score と metric 詳細 |
 | `metrics.csv` | metric ごとの loss/value/status |
 | `metric_details.json` | SDF/IoU/CD などの内訳 |
-| `per_material_sdf.csv` | material ごとの SDF loss |
 | `difference.png` | 差分確認画像 |
 | `difference_summary.json` | 差分 pixel 数 |
 | `cd_profile.csv` | 高さごとの CD profile |
 | `cd_profile.png` | CD profile の簡易グラフ |
 | `simulation_label_summary.json` | simulation の入力・view 要約 |
 | `target_label_summary.json` | target の入力・view 要約 |
+
+`sdf_material` を指定した場合は `per_material_sdf.csv`、`profile` を指定した場合は
+`profile.csv`、`corner` を指定した場合は `corner_summary.json` も出ます。
 
 `batch-compare` の重要出力:
 
@@ -258,11 +270,12 @@ metrics:
 | `ranking_top.png` | ranking 上位の簡易グラフ |
 | `metrics.csv` | 全 case の metric |
 | `metric_summary.csv` | metric ごとの min/max/mean/std |
-| `per_material_sdf.csv` | case/material ごとの SDF loss |
 | `score_summary.json` | best case や metric scale の要約 |
 | `difference_summary.csv` | 全 case の差分 pixel 数 |
 | `cases/` | case ごとの compare 出力 |
 | `shared_targets/` | 繰り返し target の共通出力 |
+
+`sdf_material` を指定した batch では、root に `per_material_sdf.csv` が集約されます。
 
 ランキングは `normalized_total_score` を基準にします。小さいほど target に近いです。
 
@@ -283,3 +296,19 @@ make clean
 ```
 
 `outputs/` は再生成可能なローカル成果物として扱います。
+
+## 12. 詳しく診断したい場合
+
+通常は `metrics.use: [cd, sdf, iou]` から始めます。
+score が悪い理由を詳しく見たい場合だけ、次の診断 metric を追加します。
+
+| 追加 metric | 使う場面 |
+|---|---|
+| `chamfer` | 境界点群のずれを見たい |
+| `sdf_material` | どの material が差分に効いているか見たい |
+| `sdf_band` | edge / interface 近傍だけを見たい |
+| `profile` | CD の高さごとの内訳を見たい |
+| `corner` | bottom corner 位置だけを見たい |
+| `topology` | 分断や接続の有無だけを確認したい |
+
+詳しい意味、`SKIPPED` になる条件、追加出力は [Scoring.md](Scoring.md) に集約しています。

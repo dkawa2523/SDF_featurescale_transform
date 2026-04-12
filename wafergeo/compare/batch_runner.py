@@ -178,6 +178,7 @@ def run_batch_compare_from_config(config_path: str | Path) -> dict[str, object]:
     rows = _read_batch_index(index_path)
     metric_rows: list[dict[str, object]] = []
     per_material_rows: list[dict[str, object]] = []
+    material_confusion_rows: list[dict[str, object]] = []
     ranking_rows: list[dict[str, str | float]] = []
     difference_rows: list[dict[str, object]] = []
     target_cache: dict[tuple[object, ...], PreparedTarget] = {}
@@ -277,6 +278,11 @@ def run_batch_compare_from_config(config_path: str | Path) -> dict[str, object]:
         diff_src = case_out / "difference.png"
         if spec.output.difference_images and diff_src.exists():
             shutil.copyfile(diff_src, differences_dir / f"{case_id}.png")
+        confusion_path = case_out / "material_confusion.csv"
+        if confusion_path.exists():
+            with confusion_path.open("r", encoding="utf-8", newline="") as f:
+                for confusion_row in csv.DictReader(f):
+                    material_confusion_rows.append({"case_id": case_id, **confusion_row})
 
     ranking_rows.sort(key=lambda item: float(item["normalized_total_score"]))
     if spec.output.ranking:
@@ -289,6 +295,11 @@ def run_batch_compare_from_config(config_path: str | Path) -> dict[str, object]:
             out_dir / "per_material_sdf.csv",
             [{"metric": "sdf_material", "per_material": per_material_rows}],
         )
+    if material_confusion_rows:
+        with (out_dir / "material_confusion.csv").open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=list(material_confusion_rows[0]))
+            writer.writeheader()
+            writer.writerows(material_confusion_rows)
     _write_batch_difference_summary(out_dir, difference_rows)
 
     score_summary: dict[str, object] = {

@@ -10,9 +10,10 @@ def _resample_polyline(points: np.ndarray, *, closed: bool, max_step_nm: float) 
     pts = np.asarray(points, dtype=np.float32)
     if pts.shape[0] < 2:
         return pts
+    start_points = pts if closed else pts[:-1]
     stop_points = np.vstack([pts[1:], pts[:1]]) if closed else pts[1:]
     segments: list[np.ndarray] = []
-    for start, stop in zip(pts, stop_points, strict=True):
+    for start, stop in zip(start_points, stop_points, strict=True):
         length = float(np.linalg.norm(stop - start))
         steps = max(int(np.ceil(length / max(max_step_nm, 1e-6))), 1)
         t = np.linspace(0.0, 1.0, steps, endpoint=False, dtype=np.float32)

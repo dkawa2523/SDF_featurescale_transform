@@ -6,6 +6,8 @@ from pathlib import Path
 
 import numpy as np
 
+from wafergeo.compare.features import ViewFeature
+from wafergeo.compare.sdf_helpers import tsdf_from_sdf_nm
 from wafergeo.core.types import LabelVolume, TSDFVolume
 from wafergeo.mesh.build import build_mesh_from_tsdf
 from wafergeo.mesh.config import MeshBuildConfig
@@ -44,6 +46,23 @@ def write_label_sdf_feature(label: LabelVolume, output_dir: Path, *, mu_nm: floa
         tsdf=tsdf_volume.tsdf,
         material_ids=np.asarray(material_ids, dtype=np.int32),
         mu_nm=mu_nm,
+    )
+    return str(path.name)
+
+
+def write_sdf_views_feature(view_feature: ViewFeature, output_dir: Path) -> str:
+    sdf_nm = np.asarray(view_feature.sdf_nm, dtype=np.float32)
+    path = output_dir / "sdf_views.npz"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.savez(
+        path,
+        sdf_nm=sdf_nm,
+        tsdf_10nm=tsdf_from_sdf_nm(sdf_nm, clip_nm=10.0),
+        tsdf_50nm=tsdf_from_sdf_nm(sdf_nm, clip_nm=50.0),
+        log_abs_sdf=np.log1p(np.abs(sdf_nm)).astype(np.float32),
+        mask=view_feature.mask.astype(np.uint8),
+        spacing=np.asarray(view_feature.grid2d.spacing, dtype=np.float32),
+        origin=np.asarray(view_feature.grid2d.origin, dtype=np.float32),
     )
     return str(path.name)
 

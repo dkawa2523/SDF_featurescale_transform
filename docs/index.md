@@ -15,6 +15,11 @@
 | [設定の所在マップ](SettingsMap.md) | 利用者、開発者 | どこを設定し、どこが生成物か |
 | [開発者マニュアル](DeveloperManual.md) | 改修者 | コード全体の読み方、変更判断、検証方法 |
 | [拡張ガイド](ExtensionGuide.md) | 改修者 | loader / feature / metric の追加手順 |
+| [保守運用ポリシー](MaintenancePolicy.md) | 改修者、Codex 利用者 | 設計の肥大化、過剰実装、過度なテストを防ぐルール |
+| [改良計画](ImprovementPlan.md) | 改修者、データサイエンティスト | 現在の設計を崩さずに進める機能改善ロードマップ |
+| [手法調査と実装計画](MethodResearch.md) | 改修者、データサイエンティスト | 新しい手法の効果、実装場所、検証方法を具体化 |
+| [実装リスク対策](RiskControlPlan.md) | 改修者、Codex 利用者 | 新手法を安全に実装するための段階ゲートと撤退基準 |
+| [実データ評価 smoke](RealDataEvaluation.md) | 改修者 | 実データに近い dataset で metric 退行を確認する開発者向け手順 |
 
 ## 正式な利用導線
 
@@ -43,7 +48,16 @@ python -m wafergeo run batch-compare --config .\configs\examples\batch-compare.s
 | [View と 2D 投影](View.md) | 3D データを比較用の 2D 面に変換する考え方 |
 | [SDF](2_sdf.md) | SDF 特徴量と SDF 系 metric の役割 |
 | [Mesh](3_mesh.md) | mesh 特徴量の位置づけ |
-| [Scoring](Scoring.md) | `cd`, `chamfer`, `sdf`, `sdf_material`, `sdf_band`, `iou` の意味 |
+| [Scoring](Scoring.md) | Primary / Diagnostic metric の意味と使い分け |
+
+## Codex に作業を依頼するとき
+
+Codex などの coding agent に作業を依頼するときは、root の `AGENTS.md` と
+[保守運用ポリシー](MaintenancePolicy.md) を前提にしてください。
+
+広い依頼ほど、不要な workflow、深い YAML、過度な互換処理、重いテストが増えやすくなります。
+依頼時は「変更対象を loader / feature / metric / output / docs / tests のどれに限定するか」を
+明示すると、現在の設計を崩さずに改良しやすくなります。
 
 ## MkDocs で見る
 

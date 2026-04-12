@@ -18,6 +18,11 @@ nav:
   - 開発者向け:
       - 開発者マニュアル: DeveloperManual.md
       - 拡張ガイド: ExtensionGuide.md
+      - 保守運用ポリシー: MaintenancePolicy.md
+      - 改良計画: ImprovementPlan.md
+      - 手法調査と実装計画: MethodResearch.md
+      - 実装リスク対策: RiskControlPlan.md
+      - 実データ評価 smoke: RealDataEvaluation.md
       - SDF 拡張メモ: 2-1_sdf_extend.md
 
 theme:

@@ -13,11 +13,12 @@ SDF は Signed Distance Field の略で、境界からの距離を持つ特徴�
 | `compare` の `sdf_material` | material ごとの SDF 差分 |
 | `compare` の `sdf_band` | boundary 近傍 10 nm に絞った SDF 差分 |
 
-通常の比較では次の metric を使います。
+通常の比較ではまず `sdf` を使います。material ごとの原因分析が必要になった場合だけ
+`sdf_material` や `sdf_band` を追加します。
 
 ```yaml
 metrics:
-  use: [cd, chamfer, sdf, sdf_material, sdf_band, iou]
+  use: [cd, sdf, iou]
 ```
 
 ## `sdf`
@@ -61,3 +62,42 @@ per_material_sdf.csv
 - 新しい SDF 実装は小さい関数または backend として追加する。
 - scoring logic は `compare.metric_*` 側に置く。
 - YAML の設定項目は、実運用で必要になったものだけ増やす。
+
+## `sdf_views`
+
+`sdf_views` は `transform` 専用の任意 feature です。2D view の `sdf_nm` から、外部解析や学習に使いやすい派生表現を `features/sdf_views.npz` にまとめます。
+
+```yaml
+features:
+  use: [sdf_views]
+```
+
+出力 field:
+
+| field | 内容 |
+|---|---|
+| `sdf_nm` | 元の 2D SDF、単位 nm |
+| `tsdf_10nm` | `sdf_nm / 10` を `[-1, 1]` に clip した TSDF |
+| `tsdf_50nm` | `sdf_nm / 50` を `[-1, 1]` に clip した TSDF |
+| `log_abs_sdf` | `log1p(abs(sdf_nm))` |
+| `mask` | non-void mask |
+| `spacing` | 2D view spacing |
+| `origin` | 2D view origin |
+
+`sdf_views` は metric ではありません。`compare` の score には影響せず、`transform` で特徴量を出したい場合だけ指定します。
+
+## 内部 helper
+
+2D view の SDF 計算は `wafergeo.compare.sdf_helpers` に集約しています。
+
+| helper | 用途 |
+|---|---|
+| `signed_distance_from_mask_2d` | mask の signed distance。inside は負、outside は正 |
+| `unsigned_distance_from_mask_2d` | open contour など線/境界からの unsigned distance |
+| `clipped_signed_distance_from_mask_2d` | material ごとの SDF loss で使う capped distance |
+| `tsdf_from_sdf_nm` | `sdf_views` の TSDF 派生表現 |
+
+helper は 2D `[Y,X]` mask と正の `spacing_yx` だけを受け付けます。
+3D full SDF は domain 層、2D view SDF は compare 層という境界を守るためです。
+
+3D full-material TSDF は `wafergeo.sdf.full_material` の責務です。2D view helper と 3D SDF backend は混ぜず、用途ごとに分けます。

@@ -11,7 +11,7 @@ FeatureName = str
 MetricName = str
 AxisName = Literal["x", "y", "z"]
 
-FEATURE_NAMES = {"sdf", "sdf3d", "mesh", "contour", "slice"}
+FEATURE_NAMES = {"sdf", "sdf3d", "sdf_views", "mesh", "contour", "slice"}
 METRIC_NAMES = public_metric_names()
 AXIS_NAMES = {"x", "y", "z"}
 
@@ -99,7 +99,7 @@ class CdGaugeSpec:
 
 @dataclass(frozen=True)
 class MetricSpec:
-    use: tuple[MetricName, ...] = ("cd", "chamfer", "sdf", "iou")
+    use: tuple[MetricName, ...] = ("cd", "sdf", "iou")
     weights: dict[str, float] = field(default_factory=dict)
     cd_material_ids: tuple[int, ...] | None = None
     cd_gauge: CdGaugeSpec | None = None

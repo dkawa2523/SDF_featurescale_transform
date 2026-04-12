@@ -76,6 +76,7 @@ output:
     assert (out / "ranking_top.png").exists()
     assert (out / "metrics.csv").exists()
     assert (out / "metric_summary.csv").exists()
+    assert (out / "material_confusion.csv").exists()
     assert (out / "difference_summary.csv").exists()
     assert (out / "differences" / "good.png").exists()
     assert (out / "shared_targets" / "target_0001" / "features" / "target_sdf.npz").exists()
@@ -96,6 +97,10 @@ output:
     )
     assert {row["case_id"] for row in difference_rows} == {"good", "shifted"}
     assert all(row["changed_pixels"] for row in difference_rows)
+    confusion_rows = list(
+        csv.DictReader((out / "material_confusion.csv").open("r", encoding="utf-8"))
+    )
+    assert {row["case_id"] for row in confusion_rows} == {"good", "shifted"}
 
 
 def test_batch_compare_accepts_utf8_bom_index(tmp_path: Path) -> None:
