@@ -239,8 +239,8 @@ output:
     with pytest.raises(ValueError, match="compare does not support"):
         load_compare_spec_yaml(config)
 
-    sdf_views_config = tmp_path / "compare_sdf_views.yaml"
-    sdf_views_config.write_text(
+    tsdf_views_config = tmp_path / "compare_tsdf_views.yaml"
+    tsdf_views_config.write_text(
         """
 task: compare
 input:
@@ -251,7 +251,7 @@ input:
     kind: contour_json
     path: target.json
 features:
-  use: [sdf_views]
+  use: [tsdf_views]
 output:
   dir: out
 """,
@@ -259,7 +259,7 @@ output:
     )
 
     with pytest.raises(ValueError, match="compare does not support"):
-        load_compare_spec_yaml(sdf_views_config)
+        load_compare_spec_yaml(tsdf_views_config)
 
     sdf_raw_config = tmp_path / "compare_sdf_raw.yaml"
     sdf_raw_config.write_text(

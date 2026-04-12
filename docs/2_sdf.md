@@ -9,6 +9,7 @@ SDF は Signed Distance Field の略で、境界からの距離を持つ特徴�
 |---|---|
 | `transform` の `sdf` | 2D view の軽量 SDF を `features/simulation_sdf.npz` に出力 |
 | `transform` の `sdf_raw` | non-void union の raw 3D signed distance を `features/sdf_raw.npz` に出力 |
+| `transform` の `tsdf_views` | `sdf_raw` から固定 clip 幅の 3D TSDF views を `features/tsdf_views.npz` に出力 |
 | `transform` の `sdf3d` | material ごとの 3D TSDF stack を `features/sdf.npz` に出力 |
 | `compare` の `sdf` | simulation と target の 2D SDF 差分 |
 | `compare` の `sdf_material` | material ごとの SDF 差分 |
@@ -92,28 +93,33 @@ per_material_sdf.csv
 - scoring logic は `compare.metric_*` 側に置く。
 - YAML の設定項目は、実運用で必要になったものだけ増やす。
 
-## `sdf_views`
+## `tsdf_views`
 
-`sdf_views` は `transform` 専用の任意 feature です。2D view の `sdf_nm` から、外部解析や学習に使いやすい派生表現を `features/sdf_views.npz` にまとめます。
+`tsdf_views` は `transform` 専用の任意 feature です。`sdf_raw` と同じ non-void union の raw 3D SDF から、
+外部解析や学習に使いやすい固定 clip 幅の TSDF views を `features/tsdf_views.npz` にまとめます。
 
 ```yaml
 features:
-  use: [sdf_views]
+  use: [tsdf_views]
 ```
 
 出力 field:
 
 | field | 内容 |
 |---|---|
-| `sdf_nm` | 元の 2D SDF、単位 nm |
+| `sdf_nm` | 元の 3D raw SDF、shape は `[Z,Y,X]`、単位 nm |
 | `tsdf_10nm` | `sdf_nm / 10` を `[-1, 1]` に clip した TSDF |
-| `tsdf_50nm` | `sdf_nm / 50` を `[-1, 1]` に clip した TSDF |
+| `tsdf_30nm` | `sdf_nm / 30` を `[-1, 1]` に clip した TSDF |
+| `tsdf_100nm` | `sdf_nm / 100` を `[-1, 1]` に clip した TSDF |
 | `log_abs_sdf` | `log1p(abs(sdf_nm))` |
-| `mask` | non-void mask |
-| `spacing` | 2D view spacing |
-| `origin` | 2D view origin |
+| `mask` | non-void union mask |
+| `clip_nm` | clip 幅 `[10, 30, 100]` |
+| `spacing_zyx_nm` | 内部 grid spacing |
+| `origin_zyx_nm` | 内部 grid origin |
+| `material_ids` | 入力に存在する material id |
+| `void_id` | void material id |
 
-`sdf_views` は metric ではありません。`compare` の score には影響せず、`transform` で特徴量を出したい場合だけ指定します。
+`tsdf_views` は metric ではありません。`compare` の score には影響せず、`transform` で特徴量を出したい場合だけ指定します。
 
 ## 内部 helper
 
@@ -124,7 +130,7 @@ features:
 | `signed_distance_from_mask_2d` | mask の signed distance。inside は負、outside は正 |
 | `unsigned_distance_from_mask_2d` | open contour など線/境界からの unsigned distance |
 | `clipped_signed_distance_from_mask_2d` | material ごとの SDF loss で使う capped distance |
-| `tsdf_from_sdf_nm` | `sdf_views` の TSDF 派生表現 |
+| `tsdf_from_sdf_nm` | `tsdf_views` の TSDF 派生表現 |
 
 helper は 2D `[Y,X]` mask と正の `spacing_yx` だけを受け付けます。
 3D full SDF は domain 層、2D view SDF は compare 層という境界を守るためです。

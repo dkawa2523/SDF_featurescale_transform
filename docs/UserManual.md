@@ -133,14 +133,14 @@ output:
 `sdf` は軽量な 2D view SDF です。3D field feature が必要な場合は、まず `sdf_raw` を指定します。
 `sdf_raw` は non-void union の raw signed distance で、inside は負、outside は正です。
 
-外部解析や学習用に SDF 派生特徴量をまとめて出したい場合は、任意 feature として `sdf_views` を指定します。
+外部解析や学習用に 3D TSDF 派生特徴量をまとめて出したい場合は、任意 feature として `tsdf_views` を指定します。
 
 ```yaml
 features:
-  use: [sdf_views]
+  use: [tsdf_views]
 ```
 
-`features/sdf_views.npz` には `sdf_nm`, `tsdf_10nm`, `tsdf_50nm`, `log_abs_sdf`, `mask`, `spacing`, `origin` が入ります。これは `transform` 専用で、`compare` の score には影響しません。
+`features/tsdf_views.npz` には `sdf_nm`, `tsdf_10nm`, `tsdf_30nm`, `tsdf_100nm`, `log_abs_sdf`, `mask`, `spacing_zyx_nm`, `origin_zyx_nm` が入ります。これは `transform` 専用で、`compare` の score には影響しません。
 
 ## 6. compare の YAML
 

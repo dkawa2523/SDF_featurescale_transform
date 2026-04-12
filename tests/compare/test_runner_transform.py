@@ -113,10 +113,10 @@ output:
     assert feature_summary["features"][0]["source_region"] == "non_void_union"
 
 
-def test_transform_writes_sdf_views_only_when_requested(tmp_path: Path) -> None:
-    sim = write_npz(tmp_path / "sim_sdf_views.npz")
-    out = tmp_path / "transform_sdf_views"
-    cfg = tmp_path / "transform_sdf_views.yaml"
+def test_transform_writes_tsdf_views_only_when_requested(tmp_path: Path) -> None:
+    sim = write_npz(tmp_path / "sim_tsdf_views.npz")
+    out = tmp_path / "transform_tsdf_views"
+    cfg = tmp_path / "transform_tsdf_views.yaml"
     cfg.write_text(
         f"""
 task: transform
@@ -125,7 +125,7 @@ input:
     kind: npz_label
     path: {sim}
 features:
-  use: [sdf_views]
+  use: [tsdf_views]
 output:
   dir: {out}
 """,
@@ -134,21 +134,29 @@ output:
 
     summary = run_transform_from_config(cfg)
 
-    assert summary["features"] == {"sdf_views": "sdf_views.npz"}
-    data = np.load(out / "features" / "sdf_views.npz")
+    assert summary["features"] == {"tsdf_views": "tsdf_views.npz"}
+    data = np.load(out / "features" / "tsdf_views.npz")
     assert set(data.files) == {
         "sdf_nm",
         "tsdf_10nm",
-        "tsdf_50nm",
+        "tsdf_30nm",
+        "tsdf_100nm",
         "log_abs_sdf",
         "mask",
-        "spacing",
-        "origin",
+        "clip_nm",
+        "spacing_zyx_nm",
+        "origin_zyx_nm",
+        "material_ids",
+        "void_id",
     }
     assert data["sdf_nm"].shape == data["mask"].shape
     assert np.max(data["tsdf_10nm"]) <= 1.0
     assert np.min(data["tsdf_10nm"]) >= -1.0
+    np.testing.assert_allclose(data["clip_nm"], np.asarray([10.0, 30.0, 100.0]))
     np.testing.assert_allclose(data["log_abs_sdf"], np.log1p(np.abs(data["sdf_nm"])))
+    feature_summary = json.loads((out / "feature_summary.json").read_text(encoding="utf-8"))
+    assert feature_summary["features"][0]["name"] == "tsdf_views"
+    assert feature_summary["features"][0]["source_feature"] == "sdf_raw"
 
 
 def test_transform_accepts_view_spec(tmp_path: Path) -> None:

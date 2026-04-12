@@ -233,10 +233,10 @@ score に入れたいわけではなく、結果の解釈を助けたいだけ�
 
 `material_confusion.csv` はこの方針の例です。`sdf_material` や `iou` の原因分析には有用ですが、total score には入れません。
 
-## `sdf_raw` / `sdf_views` を例にした feature 出力の追加
+## `sdf_raw` / `tsdf_views` を例にした feature 出力の追加
 
 外部解析や学習に使う特徴量は、metric ではなく `transform` の feature として追加します。
-`sdf_raw` と `sdf_views` はその例です。
+`sdf_raw` と `tsdf_views` はその例です。
 
 - feature 名は `features.use` に追加する。
 - schema の `FEATURE_NAMES` に登録する。

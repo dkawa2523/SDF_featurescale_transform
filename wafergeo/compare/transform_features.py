@@ -6,13 +6,14 @@ from pathlib import Path
 
 import numpy as np
 
-from wafergeo.compare.features import ViewFeature
 from wafergeo.compare.sdf_helpers import tsdf_from_sdf_nm
 from wafergeo.core.types import LabelVolume, TSDFVolume
 from wafergeo.mesh.build import build_mesh_from_tsdf
 from wafergeo.mesh.config import MeshBuildConfig
 from wafergeo.sdf.edt import signed_distance_from_mask
 from wafergeo.sdf.full_material import build_full_material_sdf
+
+TSDF_VIEW_CLIP_NM = (10.0, 30.0, 100.0)
 
 
 def _array_stats(array: np.ndarray) -> dict[str, object]:
@@ -38,6 +39,23 @@ def _array_stats(array: np.ndarray) -> dict[str, object]:
 
 def _file_size_mb(path: Path) -> float:
     return float(path.stat().st_size) / (1024.0 * 1024.0)
+
+
+def _non_void_sdf_raw(label: LabelVolume) -> tuple[np.ndarray, np.ndarray]:
+    labels = np.asarray(label.material_id)
+    non_void = labels != int(label.material.void_id)
+    spacing_zyx = (
+        float(label.grid.spacing[0]),
+        float(label.grid.spacing[1]),
+        float(label.grid.spacing[2]),
+    )
+    if not np.any(non_void):
+        sdf_nm = np.full(labels.shape, 1e6, dtype=np.float32)
+    elif np.all(non_void):
+        sdf_nm = np.full(labels.shape, -1e6, dtype=np.float32)
+    else:
+        sdf_nm = signed_distance_from_mask(non_void, spacing_zyx, backend="scipy")
+    return sdf_nm.astype(np.float32, copy=False), non_void
 
 
 def _label_to_tsdf_volume(label: LabelVolume, *, mu_nm: float) -> TSDFVolume:
@@ -77,19 +95,12 @@ def write_label_sdf_feature(label: LabelVolume, output_dir: Path, *, mu_nm: floa
 
 
 def write_label_sdf_raw_feature(label: LabelVolume, output_dir: Path) -> str:
-    labels = np.asarray(label.material_id)
-    non_void = labels != int(label.material.void_id)
     spacing_zyx = (
         float(label.grid.spacing[0]),
         float(label.grid.spacing[1]),
         float(label.grid.spacing[2]),
     )
-    if not np.any(non_void):
-        sdf_nm = np.full(labels.shape, 1e6, dtype=np.float32)
-    elif np.all(non_void):
-        sdf_nm = np.full(labels.shape, -1e6, dtype=np.float32)
-    else:
-        sdf_nm = signed_distance_from_mask(non_void, spacing_zyx, backend="scipy")
+    sdf_nm, non_void = _non_void_sdf_raw(label)
     path = output_dir / "sdf_raw.npz"
     output_dir.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
@@ -104,19 +115,23 @@ def write_label_sdf_raw_feature(label: LabelVolume, output_dir: Path) -> str:
     return str(path.name)
 
 
-def write_sdf_views_feature(view_feature: ViewFeature, output_dir: Path) -> str:
-    sdf_nm = np.asarray(view_feature.sdf_nm, dtype=np.float32)
-    path = output_dir / "sdf_views.npz"
+def write_tsdf_views_feature(label: LabelVolume, output_dir: Path) -> str:
+    sdf_nm, non_void = _non_void_sdf_raw(label)
+    path = output_dir / "tsdf_views.npz"
     output_dir.mkdir(parents=True, exist_ok=True)
-    np.savez(
+    np.savez_compressed(
         path,
         sdf_nm=sdf_nm,
         tsdf_10nm=tsdf_from_sdf_nm(sdf_nm, clip_nm=10.0),
-        tsdf_50nm=tsdf_from_sdf_nm(sdf_nm, clip_nm=50.0),
+        tsdf_30nm=tsdf_from_sdf_nm(sdf_nm, clip_nm=30.0),
+        tsdf_100nm=tsdf_from_sdf_nm(sdf_nm, clip_nm=100.0),
         log_abs_sdf=np.log1p(np.abs(sdf_nm)).astype(np.float32),
-        mask=view_feature.mask.astype(np.uint8),
-        spacing=np.asarray(view_feature.grid2d.spacing, dtype=np.float32),
-        origin=np.asarray(view_feature.grid2d.origin, dtype=np.float32),
+        mask=non_void.astype(np.uint8, copy=False),
+        clip_nm=np.asarray(TSDF_VIEW_CLIP_NM, dtype=np.float32),
+        spacing_zyx_nm=np.asarray(label.grid.spacing, dtype=np.float32),
+        origin_zyx_nm=np.asarray(label.grid.origin, dtype=np.float32),
+        material_ids=np.asarray(label.material.ids, dtype=np.int32),
+        void_id=np.asarray(int(label.material.void_id), dtype=np.int32),
     )
     return str(path.name)
 
@@ -153,6 +168,26 @@ def write_transform_feature_summary(
                     "inside_sign": "negative",
                     "outside_sign": "positive",
                     "source_region": "non_void_union",
+                    "array": _array_stats(sdf_nm),
+                }
+            )
+        elif name == "tsdf_views" and path.exists():
+            with np.load(path, allow_pickle=False) as data:
+                sdf_nm = np.asarray(data["sdf_nm"], dtype=np.float32)
+                clip_nm = [float(v) for v in np.asarray(data["clip_nm"]).tolist()]
+            row.update(
+                {
+                    "semantics": "derived_tsdf_views",
+                    "units": label.grid.units,
+                    "axis_order_internal": "ZYX",
+                    "axis_order_user": ["x", "y", "z"],
+                    "spacing_zyx_nm": [float(v) for v in label.grid.spacing],
+                    "origin_zyx_nm": [float(v) for v in label.grid.origin],
+                    "void_id": int(label.material.void_id),
+                    "material_ids": [int(v) for v in label.material.ids],
+                    "source_feature": "sdf_raw",
+                    "source_region": "non_void_union",
+                    "clip_nm": clip_nm,
                     "array": _array_stats(sdf_nm),
                 }
             )
