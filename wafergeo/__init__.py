@@ -8,16 +8,12 @@ from types import ModuleType
 __version__ = "0.1.0"
 
 _SUBMODULES = (
-    "bench",
+    "core",
+    "io",
+    "label",
     "sdf",
     "mesh",
-    "observe",
-    "metrics",
-    "reports",
-    "sem",
-    "assimilation",
-    "surrogate",
-    "pipelines",
+    "compare",
 )
 
 __all__ = ["__version__", *_SUBMODULES]

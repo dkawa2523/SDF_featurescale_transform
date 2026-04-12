@@ -1,1 +1,0 @@
-# Assimilation layer tests.

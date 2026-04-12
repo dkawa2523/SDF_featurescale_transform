@@ -7,7 +7,7 @@ from typing import Any
 
 @dataclass(frozen=True)
 class Meta:
-    """Common metadata carried by all artifacts."""
+    """Common metadata carried by derived geometry objects."""
 
     schema_version: str
     profile_id: str

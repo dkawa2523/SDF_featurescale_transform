@@ -1,17 +1,20 @@
-PY311 ?= python3.11
+PYTHON ?= python
 
-.PHONY: install-dev lint typecheck test check
+.PHONY: install-dev lint typecheck test check clean
 
 install-dev:
-	$(PY311) -m pip install -e '.[dev]'
+	$(PYTHON) -m pip install -e '.[dev]'
 
 lint:
-	$(PY311) -m ruff check .
+	$(PYTHON) -m ruff check .
 
 typecheck:
-	$(PY311) -m mypy wafergeo
+	$(PYTHON) -m mypy wafergeo
 
 test:
-	$(PY311) -m pytest -q
+	$(PYTHON) -m pytest -q
 
 check: lint typecheck test
+
+clean:
+	$(PYTHON) -c "import pathlib, shutil; root=pathlib.Path('.'); names={'__pycache__','.pytest_cache','.mypy_cache','.ruff_cache','outputs'}; [shutil.rmtree(p, ignore_errors=True) for p in root.rglob('*') if p.name in names]; [shutil.rmtree(root / n, ignore_errors=True) for n in names]"

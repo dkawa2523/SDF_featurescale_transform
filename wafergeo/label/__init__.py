@@ -1,6 +1,5 @@
 """Ingest/Label normalization layer."""
 
-from wafergeo.label.artifact import build_label_artifact_payload, write_label_artifact
 from wafergeo.label.errors import (
     InvalidArrayShapeError,
     InvalidGridMetaError,
@@ -35,8 +34,6 @@ __all__ = [
     "load_materials_yaml",
     "material_id_to_index",
     "material_index_to_id",
-    "build_label_artifact_payload",
-    "write_label_artifact",
     "MissingLabelArrayError",
     "InvalidArrayShapeError",
     "UnknownMaterialIdError",

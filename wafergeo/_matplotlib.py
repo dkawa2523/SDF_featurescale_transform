@@ -27,19 +27,3 @@ def _load_matplotlib(
 
 def require_matplotlib_pyplot(*, context: str, install_hint: str) -> Any:
     return _load_matplotlib(context=context, install_hint=install_hint)[0]
-
-
-def require_matplotlib_audit_plotting(
-    *,
-    context: str,
-    install_hint: str,
-) -> tuple[Any, Any, Any]:
-    plt, line_collection, poly_3d_collection = _load_matplotlib(
-        context=context,
-        install_hint=install_hint,
-        extra_imports=(
-            ("matplotlib.collections", "LineCollection"),
-            ("mpl_toolkits.mplot3d.art3d", "Poly3DCollection"),
-        ),
-    )
-    return plt, line_collection, poly_3d_collection

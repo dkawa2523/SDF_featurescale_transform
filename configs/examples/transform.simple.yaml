@@ -1,0 +1,17 @@
+task: transform
+
+input:
+  simulation:
+    kind: npz_label
+    path: ../../data/examples/sim_case.npz
+    # void_id: 0  # required when material id 0 is not present
+
+view:
+  axes: [x, z]
+  depth_axis: y
+
+features:
+  use: [sdf, mesh, contour, slice]
+
+output:
+  dir: ../../outputs/example_transform

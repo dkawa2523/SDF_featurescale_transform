@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Literal
+from dataclasses import dataclass
 
 import numpy as np
 
 from wafergeo.core.grid import GridSpec
 from wafergeo.core.meta import Meta
-
-Status = Literal["OK", "WARN", "FAIL"]
 
 
 @dataclass(frozen=True)
@@ -23,8 +20,6 @@ class MaterialSpec:
         length = len(self.ids)
         if length == 0:
             raise ValueError("ids must be non-empty")
-        if length > 5:
-            raise ValueError("material count must be <= 5")
         if len(set(self.ids)) != length:
             raise ValueError("ids must be unique")
         if len(self.names) != length:
@@ -151,73 +146,5 @@ class PointCloud:
             if not np.array_equal(
                 self.point_is_exposed,
                 bool_cast.astype(self.point_is_exposed.dtype),
-            ):
-                raise ValueError("point_is_exposed must be boolean-like")
-
-
-@dataclass(frozen=True)
-class ContourLoop:
-    points_xy: np.ndarray
-    is_hole: bool
-    label: str | None = None
-    meta: dict[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        if self.points_xy.ndim != 2 or self.points_xy.shape[1] != 2:
-            raise ValueError("points_xy must be shape (N,2)")
-        if self.points_xy.shape[0] < 2:
-            raise ValueError("points_xy must contain at least 2 points")
-        if not np.issubdtype(self.points_xy.dtype, np.floating):
-            raise ValueError("points_xy dtype must be floating")
-
-
-@dataclass(frozen=True)
-class ObserverSpec:
-    kind: str
-    target_grid_2d: GridSpec
-    roi: dict[str, float]
-    params: dict[str, Any]
-    contour: dict[str, Any]
-
-    def __post_init__(self) -> None:
-        if not self.kind:
-            raise ValueError("kind must be non-empty")
-        if self.target_grid_2d.dim != 2:
-            raise ValueError("target_grid_2d.dim must be 2")
-
-
-@dataclass(frozen=True)
-class Obs2D:
-    """Unified 2D observation domain.
-
-    Field set follows the detailed observer design in `docs/4_observer.md` (more
-    specific than `docs/0_design.md`), including contour loops and debug maps.
-    """
-
-    grid2d: GridSpec
-    mask: np.ndarray
-    tsdf: np.ndarray
-    loops: list[ContourLoop]
-    weight: np.ndarray | None
-    transform: dict[str, Any] | None
-    debug_maps: dict[str, np.ndarray]
-    meta: Meta
-
-    def __post_init__(self) -> None:
-        if self.grid2d.dim != 2:
-            raise ValueError("grid2d.dim must be 2")
-        if self.mask.ndim != 2:
-            raise ValueError("mask must be 2D (Y,X)")
-        if self.tsdf.shape != self.mask.shape:
-            raise ValueError("tsdf shape must match mask shape")
-        if not np.issubdtype(self.tsdf.dtype, np.floating):
-            raise ValueError("tsdf dtype must be floating")
-        if not np.isfinite(self.tsdf).all():
-            raise ValueError("tsdf contains NaN/Inf")
-        if self.tsdf.min() < -1.0001 or self.tsdf.max() > 1.0001:
-            raise ValueError("tsdf values must be within [-1,1]")
-        if self.weight is not None and self.weight.shape != self.mask.shape:
-            raise ValueError("weight shape must match mask shape")
-        for key, value in self.debug_maps.items():
-            if value.shape != self.mask.shape:
-                raise ValueError(f"debug_maps[{key}] shape must match mask shape")
+                ):
+                    raise ValueError("point_is_exposed must be boolean-like")

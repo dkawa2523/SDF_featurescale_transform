@@ -7,7 +7,7 @@ import pytest
 
 from wafergeo.core.grid import GridSpec
 from wafergeo.core.meta import Meta
-from wafergeo.core.types import ContourLoop, MaterialSpec, Obs2D, PointCloud, Status, TSDFVolume
+from wafergeo.core.types import MaterialSpec, PointCloud, TSDFVolume
 
 
 def _meta() -> Meta:
@@ -80,36 +80,17 @@ def test_material_spec_length_mismatch_raises() -> None:
         )
 
 
-def test_obs2d_constructs_with_loops_and_debug_maps() -> None:
-    grid2d = GridSpec(
-        dim=2,
-        spacing=(2.0, 2.0),
-        origin=(0.0, 0.0),
-        axis_order="YX",
-        sample_location="cell_center",
-        units="nm",
-    )
-    loops = [
-        ContourLoop(points_xy=np.array([[0.0, 0.0], [1.0, 1.0]], dtype=np.float32), is_hole=False),
-        ContourLoop(points_xy=np.array([[2.0, 2.0], [3.0, 3.0]], dtype=np.float32), is_hole=True),
-    ]
-    mask = np.zeros((4, 5), dtype=np.uint8)
-    tsdf = np.zeros((4, 5), dtype=np.float32)
-    debug = {"height_map": np.zeros((4, 5), dtype=np.float32)}
-
-    obs = Obs2D(
-        grid2d=grid2d,
-        mask=mask,
-        tsdf=tsdf,
-        loops=loops,
-        weight=None,
-        transform={"kind": "identity"},
-        debug_maps=debug,
-        meta=_meta(),
+def test_material_spec_allows_dataset_scale_material_counts() -> None:
+    ids = list(range(9))
+    material = MaterialSpec(
+        ids=ids,
+        names=[f"material_{idx}" for idx in ids],
+        void_id=0,
+        priority=ids,
+        ignore_in_exposure=[idx == 0 for idx in ids],
     )
 
-    assert len(obs.loops) == 2
-    assert obs.weight is None
+    assert material.ids == ids
 
 
 def test_tsdf_volume_accepts_z1_equivalent_for_2d_case() -> None:
@@ -180,13 +161,3 @@ def test_pointcloud_validates_point_is_exposed() -> None:
             point_is_exposed=np.array([1, 2], dtype=np.int32),
             meta=_meta(),
         )
-
-
-def _accept_status(value: Status) -> str:
-    return value
-
-
-def test_status_literal_scaffold() -> None:
-    assert _accept_status("OK") == "OK"
-    assert _accept_status("WARN") == "WARN"
-    assert _accept_status("FAIL") == "FAIL"

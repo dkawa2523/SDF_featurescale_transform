@@ -1,0 +1,35 @@
+task: compare
+
+input:
+  simulation:
+    kind: npz_label
+    path: ../../data/examples/sim_case.npz
+    # void_id: 0  # required when material id 0 is not present
+
+  target:
+    kind: npz_label
+    path: ../../data/examples/target_case.npz
+
+view:
+  axes: [x, z]
+  depth_axis: y
+
+features:
+  use: [sdf, contour]
+
+metrics:
+  use: [cd, chamfer, sdf, sdf_material, sdf_band, iou]
+  # Optional: focus CD on selected label-volume materials.
+  # If omitted, label-volume CD automatically scores internal material-boundary
+  # transitions and records the default center-line width profile.
+  # cd:
+  #   material_ids: [2]
+  #   gauge:
+  #     axis: x
+  #     height_axis: z
+  #     center: 4.0
+  #     height_range: [0.0, 10.0]
+
+output:
+  dir: ../../outputs/example_compare
+  difference_image: true

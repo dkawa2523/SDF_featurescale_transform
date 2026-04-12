@@ -63,22 +63,3 @@ def canonical_json_dumps(obj: Any) -> str:
 
 def hash_config(obj: Any) -> str:
     return sha256_bytes(canonical_json_dumps(obj).encode("utf-8"))
-
-
-def make_artifact_id(
-    input_hash: str,
-    profile_id: str,
-    config_hash: str,
-    generator_version: str,
-) -> str:
-    """Build deterministic artifact id from canonical key fields.
-
-    Uses `|` as delimiter to avoid ambiguous concatenation.
-    """
-
-    values = [input_hash, profile_id, config_hash, generator_version]
-    for idx, value in enumerate(values):
-        if not value:
-            raise ValueError(f"artifact id component at index {idx} must be non-empty")
-    payload = "|".join(values).encode("utf-8")
-    return sha256_bytes(payload)

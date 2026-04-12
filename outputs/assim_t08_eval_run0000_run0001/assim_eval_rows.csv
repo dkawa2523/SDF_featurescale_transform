@@ -1,5 +1,0 @@
-direction,obs_run,candidate_run,total_loss,status,metric_tsdf_loss
-obs_run_0000,run_0000,run_0000,1000000.0,FAIL,1000000.0
-obs_run_0000,run_0000,run_0001,1000000.0,FAIL,1000000.0
-obs_run_0001,run_0001,run_0001,1000000.0,FAIL,1000000.0
-obs_run_0001,run_0001,run_0000,1000000.0,FAIL,1000000.0

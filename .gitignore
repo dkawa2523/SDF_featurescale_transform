@@ -9,6 +9,8 @@ __pycache__/
 
 # Build metadata
 wafergeo.egg-info/
+site/
 
 # Local temporary artifacts
 tmp_*/
+outputs/

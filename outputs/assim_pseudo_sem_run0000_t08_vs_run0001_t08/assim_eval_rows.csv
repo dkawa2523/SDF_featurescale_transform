@@ -1,3 +1,0 @@
-obs_run,candidate_run,total_loss,status,metric_tsdf_loss,selected_material_id,selected_z_index
-run_0000,run_0000,0.0,OK,0.0,10,121
-run_0000,run_0001,0.0037769845221191645,OK,0.0037769845221191645,10,121

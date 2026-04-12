@@ -1,0 +1,29 @@
+task: batch-compare
+
+input:
+  index: ../../data/examples/compare_pairs.csv
+
+view:
+  axes: [x, z]
+  depth_axis: y
+
+features:
+  use: [sdf, contour]
+
+metrics:
+  use: [cd, chamfer, sdf, sdf_material, sdf_band, iou]
+  # Optional: focus CD on selected label-volume materials.
+  # If omitted, label-volume CD automatically scores internal material-boundary
+  # transitions and records the default center-line width profile.
+  # cd:
+  #   material_ids: [2]
+  #   gauge:
+  #     axis: x
+  #     height_axis: z
+  #     center: 4.0
+  #     height_range: [0.0, 10.0]
+
+output:
+  dir: ../../outputs/example_batch_compare
+  ranking: true
+  difference_images: true

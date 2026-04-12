@@ -1,0 +1,3 @@
+case_id,simulation_kind,simulation_path,target_kind,target_path
+target_self,npz_label,target_case.npz,npz_label,target_case.npz
+sim_vs_target,npz_label,sim_case.npz,npz_label,target_case.npz

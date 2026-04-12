@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Generic, TypeVar
 
@@ -38,28 +37,11 @@ class Registry(Generic[T]):
         return callable_factory(*args, **kwargs)
 
 
-# Domain-level registries (Phase 0 placeholders).
-sdf_backend_registry: Registry[Any] = Registry("sdf_backend")
-observer_registry: Registry[Any] = Registry("observer")
-metric_registry: Registry[Any] = Registry("metric")
-report_plot_registry: Registry[Any] = Registry("report_plot")
-report_extractor_registry: Registry[Any] = Registry("report_extractor")
-sem_reader_registry: Registry[Any] = Registry("sem_reader")
+# Domain-level registry used by SDF engines.
+sdf_backend_registry: Registry[object] = Registry("sdf_backend")
 
 
-def register_observer(kind: str, cls: Any) -> None:
-    observer_registry.register(kind, cls)
-
-
-def register_metric(name: str, cls: Any) -> None:
-    metric_registry.register(name, cls)
-
-
-def register_sdf_backend(name: str, factory: Callable[..., Any]) -> None:
-    sdf_backend_registry.register(name, factory)
-
-
-def register_sdf_engine(name: str, engine: Any) -> None:
+def register_sdf_engine(name: str, engine: object) -> None:
     """Register metadata-rich SDF engine object in the shared backend registry."""
 
     sdf_backend_registry.register(name, engine)

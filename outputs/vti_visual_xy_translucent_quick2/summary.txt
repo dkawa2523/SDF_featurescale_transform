@@ -1,3 +1,0 @@
-selected_material_ids=[2, 10, 0, 11, 7]
-shape_zyx=(274, 99, 99)
-downsample_step=4

@@ -1,56 +1,18 @@
-# SDF Feature Scale Transform
+# wafergeo
 
-`wafergeo` を中心とした、半導体形状データのための幾何変換・観測化・評価基盤です。  
-VTI などの 3D ラベルデータを正規化し、SDF / TSDF、mesh、2D 観測 `Obs2D`、評価指標、benchmark、report までを一貫して扱えるようにしています。
+`wafergeo` converts simulation shape data into features and compares those
+features with contour or label-volume target data.
 
-## このリポジトリでできること
+The public workflow is intentionally small:
 
-| 項目 | 内容 |
-|---|---|
-| 入力正規化 | VTI の軸順、PointData / CellData、材料 ID の揺れを吸収して `LabelVolume` に統一 |
-| SDF / TSDF 生成 | multi-material の距離場を材料別チャンネルで生成 |
-| mesh 化 | TSDF から表面 mesh や point cloud を生成 |
-| 観測化 | 3D 形状を `Obs2D` に落とし込み、2D で比較できる形に統一 |
-| 評価 | TSDF loss、contour chamfer、CD line scan などを集約 |
-| 実行基盤 | benchmark、preview、audit、report 生成をコマンドから再現可能 |
+- `transform`: build features from one simulation label volume.
+- `compare`: compare one simulation label volume with one target.
+- `batch-compare`: compare multiple simulation-target pairs and write a ranking.
 
-## 全体像
+Downstream tools should consume the files written by this package instead of
+being built into the public workflow.
 
-```mermaid
-flowchart LR
-    A[VTI / SEM / Artifact] --> B[Label正規化]
-    B --> C[TSDF生成]
-    C --> D[Mesh生成]
-    B --> E[Observer]
-    C --> E
-    D --> E
-    E --> F[Obs2D]
-    F --> G[Metrics]
-    G --> H[Assimilation / Surrogate / Report]
-```
-
-このリポジトリの核は、3D の表現が何であっても最終的に `Obs2D` に揃えて比較することです。  
-そのため、形状処理、実測比較、学習、最適化が同じ評価面の上でつながります。
-
-## まず読むべき文書
-
-初めて見る方は、次の順に読むと全体を追いやすいです。
-
-1. [docs/INDEX.md](docs/INDEX.md)  
-   文書全体の案内です。どのファイルが何を説明しているかを一覧で確認できます。
-2. [docs/report.md](docs/report.md)  
-   実データと既計算済み結果を使った第三者向けレポートです。
-3. [docs/Benchmarkrun.md](docs/Benchmarkrun.md)  
-   環境構築、dataset を使った benchmark / preview / audit 実行方法をまとめています。
-4. [docs/0_design.md](docs/0_design.md)  
-   アーキテクチャと設計思想の詳細です。
-
-## クイックスタート
-
-詳細は [docs/Benchmarkrun.md](docs/Benchmarkrun.md) にありますが、最短の入口だけここに載せます。  
-以下は Windows PowerShell を前提にした例です。
-
-### 1. 仮想環境を作る
+## Install
 
 ```powershell
 Set-Location C:\Users\user\Desktop\SDF_fs
@@ -60,86 +22,182 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[scipy,viz,dev]"
 ```
 
-`vtk` を使った mesh backend や 3D 可視化も試す場合は、次を使います。
+Use `vtk` only when you need VTI or optional mesh tooling:
 
 ```powershell
 python -m pip install -e ".[scipy,vtk,viz,dev]"
 ```
 
-### 2. dataset を確認する
+## Run
 
 ```powershell
-Test-Path .\dataset\ataset_3d_test2\index.csv
-Test-Path .\dataset\ataset_3d_test2\run_0000\vox_t08.vti
+python -m wafergeo run transform --config .\configs\examples\transform.simple.yaml
+python -m wafergeo run compare --config .\configs\examples\compare.simple.yaml
+python -m wafergeo run batch-compare --config .\configs\examples\batch-compare.simple.yaml
 ```
 
-どちらも `True` なら benchmark / preview を実行できます。
+Users edit YAML files and read files under `outputs/`.
 
-### 3. benchmark を走らせる
+## Docs
+
+The user and developer manuals are under `docs/`. To view them as a local
+MkDocs site:
 
 ```powershell
-python .\scripts\run_correspondence_benchmark.py `
-  --spec .\configs\correspondence_bench_dataset_t08.yaml `
-  --out .\outputs\bench_dataset_t08
+py -3.13 -m pip install -e ".[dev]"
+py -3.13 -m mkdocs serve
 ```
 
-### 4. preview を作る
+To validate the documentation build:
 
 ```powershell
-python .\scripts\run_vti_preview.py `
-  --vti .\dataset\ataset_3d_test2\run_0000\vox_t08.vti `
-  --out .\outputs\vti_preview_t08
+py -3.13 -m mkdocs build --strict
 ```
 
-### 5. audit を走らせる
+## Inputs
 
-```powershell
-python .\scripts\run_vti_correspondence_audit.py `
-  --vti .\dataset\ataset_3d_test2\run_0000\vox_t08.vti `
-  --out .\outputs\vti_audit_t08
+Simulation inputs:
+
+- `npz_label`
+- `vti_label`
+
+Target inputs:
+
+- `contour_json`
+- `npz_label`
+- `vti_label`
+
+`npz_label` is user-facing `[X,Y,Z]`:
+
+```text
+labels: integer array, shape [X,Y,Z]
+spacing: optional float array, shape [3], order [X,Y,Z]
+origin: optional float array, shape [3], order [X,Y,Z]
+material_ids: optional integer array
+material_names: optional string array
+void_id: optional integer, required when material id 0 is not present
 ```
 
-## 主な成果物
+`contour_json` accepts 2D or 3D points. YAML `view.axes` selects the two axes
+used for comparison.
 
-| 実行 | 主な出力 |
-|---|---|
-| benchmark | `benchmark_manifest.json`, `tables/summary_metrics.csv`, `figures/mesh_boundary_iou.png` |
-| preview | `preview_manifest.json`, slice 図、SDF 図、mesh 比較図 |
-| audit | raw ラベルと正規化ラベルの対応確認結果、比較テーブル、診断情報 |
+```json
+{
+  "schema_version": "contour/v1",
+  "units": "nm",
+  "coordinate_axes": ["x", "y", "z"],
+  "contours": [
+    {
+      "id": "outer",
+      "label": "global",
+      "material_id": null,
+      "closed": true,
+      "points": [[0.0, 0.0, 0.0], [100.0, 0.0, 0.0], [100.0, 80.0, 0.0]]
+    }
+  ]
+}
+```
 
-## ディレクトリ構成
+For label-volume targets, use the same `npz_label` or `vti_label` contract as
+simulation input. This is the recommended path when both simulation and target
+are material labels and internal material geometry matters.
 
-| パス | 内容 |
-|---|---|
-| [`wafergeo/`](wafergeo) | コア実装 |
-| [`scripts/`](scripts) | benchmark / preview / audit の実行入口 |
-| [`configs/`](configs) | 実行 spec や設定 YAML |
-| [`tests/`](tests) | pytest ベースのテスト |
-| [`docs/`](docs) | 設計資料、手順書、第三者向けレポート |
-| [`dataset/`](dataset) | 実行用データセット |
-| [`outputs/`](outputs) | 生成結果の保存先 |
+`cd` is a cross-section critical-dimension profile metric. Select `[x,z]` or
+`[y,z]` in `view.axes` when using `cd`; top-view `[x,y]` comparisons should use
+`chamfer`, `sdf`, and `iou`. For label-volume targets, the default CD compares
+internal material-boundary positions by height and also records the center-line
+width profile, so it can catch internal shape shifts even when the outer width
+is unchanged. `metrics.cd.material_ids` can focus CD on a specific material.
+Optional `metrics.cd.gauge` makes the CD measurement location explicit:
 
-## 文書の役割
+```yaml
+metrics:
+  use: [cd, chamfer, sdf, sdf_material, sdf_band, iou]
+  cd:
+    material_ids: [2]
+    gauge:
+      axis: x
+      height_axis: z
+      center: 4.0
+      height_range: [20.0, 120.0]
+```
 
-| ファイル | 何が分かるか |
-|---|---|
-| [docs/INDEX.md](docs/INDEX.md) | 文書全体の読み方 |
-| [docs/report.md](docs/report.md) | 実データを使った第三者向け説明 |
-| [docs/Benchmarkrun.md](docs/Benchmarkrun.md) | 初回実行手順と実コマンド |
-| [docs/0_design.md](docs/0_design.md) | 全体設計と責務分割 |
-| [docs/4_observer.md](docs/4_observer.md) | `Obs2D` を中心にした比較設計 |
-| [docs/7_assimilation.md](docs/7_assimilation.md) | 最適化・同化の流れ |
+When `gauge` is omitted, CD defaults to `height_axis: z`, the non-`z` view axis
+as the width axis, the center of the projected view, all available height
+samples, and automatic material-boundary transition scoring.
+`sdf_material` reports per-material SDF losses for every detected non-void
+material, so users do not need to list material ids just to find the material
+driving an error.
+Its total loss is weighted by projected union area so tiny materials do not
+dominate the ranking by default.
+`sdf_band` uses the existing SDF feature but scores only a default `10 nm`
+boundary neighborhood, which makes interface placement errors easier to see.
 
-## テスト
+## Outputs
+
+`compare` writes:
+
+```text
+score.json
+metrics.csv
+metric_details.json
+per_material_sdf.csv
+difference.png
+difference_legend.json
+difference_summary.json
+simulation_label_summary.json
+target_label_summary.json
+cd_profile.csv
+cd_profile.png
+cd_profile_summary.json
+features/
+_run/
+```
+
+`batch-compare` also writes:
+
+```text
+ranking.csv
+ranking_top.png
+metric_summary.csv
+score_summary.json
+difference_summary.csv
+shared_targets/
+differences/
+cases/
+```
+
+`ranking.csv` is sorted by `normalized_total_score`, which uses metric scales
+from the registry. Raw `total_score` is also written for debugging in the
+original units.
+Repeated label-volume targets are stored once under `shared_targets/` so case
+directories do not duplicate the same target feature files.
+`metric_details.json` records SDF and IoU component details, such as label-field
+loss, per-material loss, and projected material-boundary loss.
+`per_material_sdf.csv`, `metric_summary.csv`, `cd_profile.png`, and
+`ranking_top.png` are lightweight derived outputs for quick inspection. CSV/JSON
+files remain the authoritative data.
+
+`_run/` contains `used_config.yaml` and `run_info.json` for debugging. It is not
+an input contract and can be deleted when not needed.
+
+## Development
+
+Keep public concepts simple:
+
+- Add new input formats as loaders.
+- Add new feature conversions under the feature layer.
+- Add new comparison methods as metrics.
+- Keep YAML shallow and avoid adding new public pipelines unless there is a
+  clear user workflow.
+
+Run checks:
 
 ```powershell
+py -3.13 -m ruff check wafergeo tests
+py -3.13 -m mypy wafergeo
 py -3.13 -m pytest -q
 ```
 
-pipeline 周辺は optional dependency の有無で挙動が変わるため、再現実行時は [docs/Benchmarkrun.md](docs/Benchmarkrun.md) の注意事項もあわせて確認してください。
-
-## 補足
-
-- このリポジトリの説明資料は `docs/` に集約されています。
-- GitHub 上でまず概要だけ見たい場合は、この `README.md` と [docs/INDEX.md](docs/INDEX.md) が入口です。
-- 実データと既計算済み結果を含む詳しい説明は [docs/report.md](docs/report.md) を参照してください。
+Generated outputs and caches are local artifacts. Remove them with `make clean`
+when you want a tidy workspace.

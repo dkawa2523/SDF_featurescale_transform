@@ -1,0 +1,30 @@
+site_name: wafergeo
+site_description: Feature transformation and shape comparison tools for wafer geometry
+docs_dir: docs
+use_directory_urls: true
+
+nav:
+  - ホーム: index.md
+  - ユーザー向け:
+      - ユーザーマニュアル: UserManual.md
+      - クイックスタート: Quickstart.md
+      - 設定の所在マップ: SettingsMap.md
+  - 処理内容:
+      - 入力 label volume: 1_IngestLabel.md
+      - View と 2D 投影: View.md
+      - SDF: 2_sdf.md
+      - Mesh: 3_mesh.md
+      - Scoring: Scoring.md
+  - 開発者向け:
+      - 開発者マニュアル: DeveloperManual.md
+      - 拡張ガイド: ExtensionGuide.md
+      - SDF 拡張メモ: 2-1_sdf_extend.md
+
+theme:
+  name: mkdocs
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
