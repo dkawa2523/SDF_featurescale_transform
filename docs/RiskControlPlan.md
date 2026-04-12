@@ -167,7 +167,7 @@ py -3.13 -m wafergeo run batch-compare --config .\configs\runs\dataset_t08_vs_ru
 | `sdf_views` | 3D dense 出力で容量が増える | `transform` の明示指定時だけ出力し、圧縮 NPZ に限定 |
 | `corner` | 形状定義が曖昧になりやすい | 断面 view のみ、最初は位置差だけ |
 | material confusion summary | metric が増えたように見える | score には入れず、診断 CSV として出す |
-| topology | 実装と依存が重くなりやすい | 初期は保留。必要になったら 2D component count から始める |
+| topology | 実装と依存が重くなりやすい | 2D component count の最小実装に限定し、3D topology や persistent homology は入れない |
 
 ## 4. Codex に実装を依頼するときの追加文
 
@@ -196,6 +196,7 @@ runner / CLI に計算ロジックを入れないでください。
 - `outputs/` と `site/` を commit していない。
 - `ruff`, `mypy`, `pytest` が通る。
 - docs を変更した場合、`mkdocs build --strict` が通る。
+- `.github/pull_request_template.md` の Scope Guard を満たしている。
 
 ## 6. 最初に進める安全な単位
 
