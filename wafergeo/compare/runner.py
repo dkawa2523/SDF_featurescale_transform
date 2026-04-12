@@ -78,6 +78,7 @@ def run_transform_from_config(config_path: str | Path) -> dict[str, object]:
         "input": {"kind": spec.simulation.kind, "path": str(sim_path)},
         "view": asdict(spec.view),
         "features": written,
+        "feature_summary": "feature_summary.json",
         "label_summary": "label_summary.json",
         "output_dir": str(out_dir),
     }

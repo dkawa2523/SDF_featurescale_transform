@@ -8,7 +8,8 @@ SDF は Signed Distance Field の略で、境界からの距離を持つ特徴�
 | 場所 | 内容 |
 |---|---|
 | `transform` の `sdf` | 2D view の軽量 SDF を `features/simulation_sdf.npz` に出力 |
-| `transform` の `sdf3d` | full 3D SDF を `features/sdf.npz` に出力 |
+| `transform` の `sdf_raw` | non-void union の raw 3D signed distance を `features/sdf_raw.npz` に出力 |
+| `transform` の `sdf3d` | material ごとの 3D TSDF stack を `features/sdf.npz` に出力 |
 | `compare` の `sdf` | simulation と target の 2D SDF 差分 |
 | `compare` の `sdf_material` | material ごとの SDF 差分 |
 | `compare` の `sdf_band` | boundary 近傍 10 nm に絞った SDF 差分 |
@@ -28,6 +29,33 @@ label volume target の場合は、material label field だけでなく projecte
 material boundary の SDF も考慮します。
 
 外形が同じで内部 material boundary だけが違うケースでも、差分を拾いやすくしています。
+
+## `sdf_raw`
+
+`sdf_raw` は `transform` 専用の 3D feature です。non-void union を interior として、
+raw signed distance を `features/sdf_raw.npz` に保存します。
+
+```yaml
+features:
+  use: [sdf_raw]
+```
+
+出力 field:
+
+| field | 内容 |
+|---|---|
+| `sdf_nm` | 3D signed distance、shape は `[Z,Y,X]`、単位 nm |
+| `mask` | non-void union mask、shape は `[Z,Y,X]` |
+| `spacing_zyx_nm` | 内部 grid spacing |
+| `origin_zyx_nm` | 内部 grid origin |
+| `material_ids` | 入力に存在する material id |
+| `void_id` | void material id |
+
+符号は inside が負、outside が正です。`feature_summary.json` には shape、dtype、
+spacing、units、min/max/mean/std、NaN/inf 数を出します。
+
+`sdf_raw` は metric ではありません。`compare` の score には直接影響せず、
+サロゲート学習や後段解析に渡す 3D field feature として使います。
 
 ## `sdf_material`
 
@@ -56,6 +84,7 @@ per_material_sdf.csv
 - 3D label volume は内部で `[Z,Y,X]`。
 - 2D 比較 map は `[Y,X]`。
 - 単位は loader で変換し、内部では nm として扱います。
+- 3D raw SDF の符号は inside negative、outside positive です。
 
 ## 拡張ルール
 

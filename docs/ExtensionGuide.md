@@ -233,9 +233,10 @@ score に入れたいわけではなく、結果の解釈を助けたいだけ�
 
 `material_confusion.csv` はこの方針の例です。`sdf_material` や `iou` の原因分析には有用ですが、total score には入れません。
 
-## `sdf_views` を例にした feature 出力の追加
+## `sdf_raw` / `sdf_views` を例にした feature 出力の追加
 
-外部解析に使う特徴量は、metric ではなく `transform` の feature として追加します。`sdf_views` はその例です。
+外部解析や学習に使う特徴量は、metric ではなく `transform` の feature として追加します。
+`sdf_raw` と `sdf_views` はその例です。
 
 - feature 名は `features.use` に追加する。
 - schema の `FEATURE_NAMES` に登録する。
@@ -243,6 +244,7 @@ score に入れたいわけではなく、結果の解釈を助けたいだけ�
 - dispatch は `feature_outputs.py` に1行追加する。
 - 出力は `features/<name>.npz` のように self-contained にする。
 - `compare` の allowed feature には追加しない。評価と特徴量出力を混ぜないためです。
+- feature の shape、単位、semantics は `feature_summary.json` に出す。
 
 この形にすると、第三者が新しい特徴量を追加しても runner / CLI / metric registry を触らずに済みます。
 

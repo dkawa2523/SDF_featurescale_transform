@@ -9,8 +9,10 @@ from wafergeo.compare.features import (
 )
 from wafergeo.compare.transform_features import (
     write_label_sdf_feature,
+    write_label_sdf_raw_feature,
     write_mesh_feature,
     write_sdf_views_feature,
+    write_transform_feature_summary,
 )
 from wafergeo.core.types import LabelVolume
 
@@ -71,6 +73,14 @@ def _write_transform_sdf3d(
     return {"sdf3d": write_label_sdf_feature(label, output_dir)}
 
 
+def _write_transform_sdf_raw(
+    label: LabelVolume,
+    _view_feature: ViewFeature,
+    output_dir: Path,
+) -> dict[str, str]:
+    return {"sdf_raw": write_label_sdf_raw_feature(label, output_dir)}
+
+
 def _write_transform_sdf_views(
     _label: LabelVolume,
     view_feature: ViewFeature,
@@ -91,6 +101,7 @@ TRANSFORM_FEATURE_WRITERS: dict[str, TransformWriter] = {
     "sdf": _write_transform_sdf,
     "contour": _write_transform_contour,
     "slice": _write_transform_slice,
+    "sdf_raw": _write_transform_sdf_raw,
     "sdf3d": _write_transform_sdf3d,
     "sdf_views": _write_transform_sdf_views,
     "mesh": _write_transform_mesh,
@@ -109,6 +120,11 @@ def write_transform_feature_outputs(
     for name in names:
         writer = TRANSFORM_FEATURE_WRITERS[name]
         written.update(writer(label, view_feature, output_dir))
+    write_transform_feature_summary(
+        label=label,
+        output_dir=output_dir,
+        written=written,
+    )
     return written
 
 

@@ -11,7 +11,7 @@ FeatureName = str
 MetricName = str
 AxisName = Literal["x", "y", "z"]
 
-FEATURE_NAMES = {"sdf", "sdf3d", "sdf_views", "mesh", "contour", "slice"}
+FEATURE_NAMES = {"sdf", "sdf_raw", "sdf3d", "sdf_views", "mesh", "contour", "slice"}
 METRIC_NAMES = public_metric_names()
 AXIS_NAMES = {"x", "y", "z"}
 

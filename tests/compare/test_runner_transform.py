@@ -37,6 +37,7 @@ output:
     assert not (out / "features" / "sdf.npz").exists()
     assert (out / "features" / "mesh.npz").exists()
     assert (out / "features" / "mesh_summary.json").exists()
+    assert (out / "feature_summary.json").exists()
     assert (out / "label_summary.json").exists()
     assert (out / "preview.png").exists()
     assert (out / "_run" / "run_info.json").exists()
@@ -68,6 +69,48 @@ output:
 
     assert summary["features"] == {"sdf3d": "sdf.npz"}
     assert (out / "features" / "sdf.npz").exists()
+
+
+def test_transform_writes_sdf_raw_only_when_requested(tmp_path: Path) -> None:
+    sim = write_npz(tmp_path / "sim_sdf_raw.npz")
+    out = tmp_path / "transform_sdf_raw"
+    cfg = tmp_path / "transform_sdf_raw.yaml"
+    cfg.write_text(
+        f"""
+task: transform
+input:
+  simulation:
+    kind: npz_label
+    path: {sim}
+features:
+  use: [sdf_raw]
+output:
+  dir: {out}
+""",
+        encoding="utf-8",
+    )
+
+    summary = run_transform_from_config(cfg)
+
+    assert summary["features"] == {"sdf_raw": "sdf_raw.npz"}
+    assert summary["feature_summary"] == "feature_summary.json"
+    data = np.load(out / "features" / "sdf_raw.npz")
+    assert set(data.files) == {
+        "sdf_nm",
+        "mask",
+        "spacing_zyx_nm",
+        "origin_zyx_nm",
+        "material_ids",
+        "void_id",
+    }
+    assert data["sdf_nm"].shape == (2, 8, 8)
+    assert data["mask"].shape == data["sdf_nm"].shape
+    assert np.min(data["sdf_nm"][data["mask"].astype(bool)]) < 0.0
+    assert np.max(data["sdf_nm"][~data["mask"].astype(bool)]) > 0.0
+    feature_summary = json.loads((out / "feature_summary.json").read_text(encoding="utf-8"))
+    assert feature_summary["features"][0]["name"] == "sdf_raw"
+    assert feature_summary["features"][0]["semantics"] == "signed_distance"
+    assert feature_summary["features"][0]["source_region"] == "non_void_union"
 
 
 def test_transform_writes_sdf_views_only_when_requested(tmp_path: Path) -> None:

@@ -12,6 +12,8 @@ view:
 
 features:
   use: [sdf, mesh, contour, slice]
+  # Optional 3D raw signed distance for downstream analysis or learning:
+  # use: [sdf_raw]
   # Optional lightweight SDF-derived views for external analysis:
   # use: [sdf_views]
 
