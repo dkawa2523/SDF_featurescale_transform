@@ -1,6 +1,8 @@
 # 改良計画
 
 この文書は、現在の `wafergeo` の設計を崩さずに、今後の改良を進めるための計画です。
+特徴量化、batch 変換、手法評価 workflow の将来像は
+[特徴量化・評価ロードマップ](WorkflowRoadmap.md) に集約しています。
 
 `sdf_extension_docs_v5` は有用な拡張案を含みますが、既存コードを知らない前提で作られており、
 現在のシンプル化方針とは合わない案も含まれています。したがって、この文書では外部案を
@@ -17,6 +19,10 @@
 | `batch-compare` | 複数 case を比較し、ranking を出す |
 
 この3つを維持し、次の概念は通常のユーザー導線に戻しません。
+
+将来的には、`batch-transform`, `transform-eval`, `compare-eval` を追加候補にします。
+ただし、これは `transform` と `compare` の用途を明確に分けるための拡張であり、
+`manifest`, `report`, `surrogate`, `assimilation` などの旧概念を戻すものではありません。
 
 - `manifest`
 - `report`

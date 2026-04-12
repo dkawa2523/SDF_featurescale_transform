@@ -15,6 +15,7 @@
 | [設定の所在マップ](SettingsMap.md) | 利用者、開発者 | どこを設定し、どこが生成物か |
 | [開発者マニュアル](DeveloperManual.md) | 改修者 | コード全体の読み方、変更判断、検証方法 |
 | [拡張ガイド](ExtensionGuide.md) | 改修者 | loader / feature / metric の追加手順 |
+| [特徴量化・評価ロードマップ](WorkflowRoadmap.md) | 利用者、改修者、データサイエンティスト | transform / compare 系 workflow の将来像、評価指標、実装順 |
 | [保守運用ポリシー](MaintenancePolicy.md) | 改修者、Codex 利用者 | 設計の肥大化、過剰実装、過度なテストを防ぐルール |
 | [改良計画](ImprovementPlan.md) | 改修者、データサイエンティスト | 現在の設計を崩さずに進める機能改善ロードマップ |
 | [手法調査と実装計画](MethodResearch.md) | 改修者、データサイエンティスト | 新しい手法の効果、実装場所、検証方法を具体化 |
@@ -23,7 +24,7 @@
 
 ## 正式な利用導線
 
-通常ユーザー向けの正式入口は次の 3 つです。
+現在の通常ユーザー向けの正式入口は次の 3 つです。
 
 ```powershell
 python -m wafergeo run transform --config .\configs\examples\transform.simple.yaml
@@ -39,6 +40,9 @@ python -m wafergeo run batch-compare --config .\configs\examples\batch-compare.s
 
 `manifest`, `report`, `surrogate`, `assimilation`, `benchmark`, `preview`, `audit`
 は通常の利用導線には含めません。必要な出力は YAML と `outputs/` だけで追える設計にしています。
+
+今後は、特徴量化と比較評価をそれぞれ「単一実行」「batch 実行」「手法評価」に分ける計画です。
+詳細は [特徴量化・評価ロードマップ](WorkflowRoadmap.md) を参照してください。
 
 ## 処理内容を理解する資料
 
