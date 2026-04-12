@@ -10,6 +10,7 @@ from wafergeo.compare.features import (
 from wafergeo.compare.transform_features import (
     write_label_sdf_feature,
     write_label_sdf_raw_feature,
+    write_label_udf_feature,
     write_mesh_feature,
     write_transform_feature_summary,
     write_tsdf_views_feature,
@@ -89,6 +90,14 @@ def _write_transform_tsdf_views(
     return {"tsdf_views": write_tsdf_views_feature(label, output_dir)}
 
 
+def _write_transform_udf(
+    label: LabelVolume,
+    _view_feature: ViewFeature,
+    output_dir: Path,
+) -> dict[str, str]:
+    return {"udf": write_label_udf_feature(label, output_dir)}
+
+
 def _write_transform_mesh(
     label: LabelVolume,
     _view_feature: ViewFeature,
@@ -104,6 +113,7 @@ TRANSFORM_FEATURE_WRITERS: dict[str, TransformWriter] = {
     "sdf_raw": _write_transform_sdf_raw,
     "sdf3d": _write_transform_sdf3d,
     "tsdf_views": _write_transform_tsdf_views,
+    "udf": _write_transform_udf,
     "mesh": _write_transform_mesh,
 }
 

@@ -123,6 +123,7 @@ output:
 |---|---|
 | `features/simulation_sdf.npz` | 2D view の SDF |
 | `features/sdf_raw.npz` | `sdf_raw` を指定した場合の raw 3D signed distance |
+| `features/udf.npz` | `udf` を指定した場合の raw 3D unsigned distance |
 | `features/simulation_contours.json` | 投影後の contour / material boundary |
 | `features/simulation_slice.npy` | 投影後の 2D label |
 | `features/mesh.npz` | mesh を指定した場合の mesh feature |
@@ -132,6 +133,7 @@ output:
 
 `sdf` は軽量な 2D view SDF です。3D field feature が必要な場合は、まず `sdf_raw` を指定します。
 `sdf_raw` は non-void union の raw signed distance で、inside は負、outside は正です。
+符号が不要で boundary までの距離だけを使いたい場合は、`udf` を指定します。
 
 外部解析や学習用に 3D TSDF 派生特徴量をまとめて出したい場合は、任意 feature として `tsdf_views` を指定します。
 

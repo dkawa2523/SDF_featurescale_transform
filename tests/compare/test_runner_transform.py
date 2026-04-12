@@ -159,6 +159,44 @@ output:
     assert feature_summary["features"][0]["source_feature"] == "sdf_raw"
 
 
+def test_transform_writes_udf_only_when_requested(tmp_path: Path) -> None:
+    sim = write_npz(tmp_path / "sim_udf.npz")
+    out = tmp_path / "transform_udf"
+    cfg = tmp_path / "transform_udf.yaml"
+    cfg.write_text(
+        f"""
+task: transform
+input:
+  simulation:
+    kind: npz_label
+    path: {sim}
+features:
+  use: [udf]
+output:
+  dir: {out}
+""",
+        encoding="utf-8",
+    )
+
+    summary = run_transform_from_config(cfg)
+
+    assert summary["features"] == {"udf": "udf.npz"}
+    data = np.load(out / "features" / "udf.npz")
+    assert set(data.files) == {
+        "udf_nm",
+        "mask",
+        "spacing_zyx_nm",
+        "origin_zyx_nm",
+        "material_ids",
+        "void_id",
+    }
+    assert data["udf_nm"].shape == (2, 8, 8)
+    assert np.min(data["udf_nm"]) >= 0.0
+    feature_summary = json.loads((out / "feature_summary.json").read_text(encoding="utf-8"))
+    assert feature_summary["features"][0]["name"] == "udf"
+    assert feature_summary["features"][0]["semantics"] == "unsigned_distance"
+
+
 def test_transform_accepts_view_spec(tmp_path: Path) -> None:
     sim = write_npz(tmp_path / "sim_view.npz")
     out = tmp_path / "transform_view"

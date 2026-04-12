@@ -283,6 +283,28 @@ output:
     with pytest.raises(ValueError, match="compare does not support"):
         load_compare_spec_yaml(sdf_raw_config)
 
+    udf_config = tmp_path / "compare_udf.yaml"
+    udf_config.write_text(
+        """
+task: compare
+input:
+  simulation:
+    kind: npz_label
+    path: sim.npz
+  target:
+    kind: contour_json
+    path: target.json
+features:
+  use: [udf]
+output:
+  dir: out
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="compare does not support"):
+        load_compare_spec_yaml(udf_config)
+
 
 def test_compare_yaml_rejects_metric_without_required_feature(tmp_path: Path) -> None:
     compare_config = tmp_path / "compare_missing_contour.yaml"

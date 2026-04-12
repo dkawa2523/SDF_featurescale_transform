@@ -308,7 +308,7 @@ output:
 | --- | --- | --- | --- |
 | P1 | `sdf_raw` | non-void union の signed SDF | 距離場特徴量の基準 |
 | P1 | `tsdf_views` | 固定 clip 幅の TSDF 派生 view | 学習しやすい multi-scale 表現 |
-| P1 | `udf` | contour_json から unsigned distance | 実測 contour / open contour 向け |
+| P1 | `udf` | non-void boundary への unsigned distance。contour_json route は後段 | 実測 contour / open contour 向けの土台 |
 | P2 | `material_sdf` | material id ごとの signed SDF stack | material-aware な 3D 特徴量 |
 | P3 | `interface_sdf` | material interface までの距離 | 内部境界評価 |
 

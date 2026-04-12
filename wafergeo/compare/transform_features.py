@@ -136,6 +136,23 @@ def write_tsdf_views_feature(label: LabelVolume, output_dir: Path) -> str:
     return str(path.name)
 
 
+def write_label_udf_feature(label: LabelVolume, output_dir: Path) -> str:
+    sdf_nm, non_void = _non_void_sdf_raw(label)
+    udf_nm = np.abs(sdf_nm).astype(np.float32, copy=False)
+    path = output_dir / "udf.npz"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        path,
+        udf_nm=udf_nm,
+        mask=non_void.astype(np.uint8, copy=False),
+        spacing_zyx_nm=np.asarray(label.grid.spacing, dtype=np.float32),
+        origin_zyx_nm=np.asarray(label.grid.origin, dtype=np.float32),
+        material_ids=np.asarray(label.material.ids, dtype=np.int32),
+        void_id=np.asarray(int(label.material.void_id), dtype=np.int32),
+    )
+    return str(path.name)
+
+
 def write_transform_feature_summary(
     *,
     label: LabelVolume,
@@ -189,6 +206,24 @@ def write_transform_feature_summary(
                     "source_region": "non_void_union",
                     "clip_nm": clip_nm,
                     "array": _array_stats(sdf_nm),
+                }
+            )
+        elif name == "udf" and path.exists():
+            with np.load(path, allow_pickle=False) as data:
+                udf_nm = np.asarray(data["udf_nm"], dtype=np.float32)
+            row.update(
+                {
+                    "semantics": "unsigned_distance",
+                    "units": label.grid.units,
+                    "axis_order_internal": "ZYX",
+                    "axis_order_user": ["x", "y", "z"],
+                    "spacing_zyx_nm": [float(v) for v in label.grid.spacing],
+                    "origin_zyx_nm": [float(v) for v in label.grid.origin],
+                    "void_id": int(label.material.void_id),
+                    "material_ids": [int(v) for v in label.material.ids],
+                    "source_feature": "sdf_raw",
+                    "source_region": "non_void_union_boundary",
+                    "array": _array_stats(udf_nm),
                 }
             )
         features.append(row)

@@ -16,6 +16,8 @@ features:
   # use: [sdf_raw]
   # Optional 3D TSDF views derived from sdf_raw:
   # use: [tsdf_views]
+  # Optional 3D unsigned distance to the non-void boundary:
+  # use: [udf]
 
 output:
   dir: ../../outputs/example_transform

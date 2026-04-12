@@ -10,6 +10,7 @@ SDF は Signed Distance Field の略で、境界からの距離を持つ特徴�
 | `transform` の `sdf` | 2D view の軽量 SDF を `features/simulation_sdf.npz` に出力 |
 | `transform` の `sdf_raw` | non-void union の raw 3D signed distance を `features/sdf_raw.npz` に出力 |
 | `transform` の `tsdf_views` | `sdf_raw` から固定 clip 幅の 3D TSDF views を `features/tsdf_views.npz` に出力 |
+| `transform` の `udf` | non-void boundary への 3D unsigned distance を `features/udf.npz` に出力 |
 | `transform` の `sdf3d` | material ごとの 3D TSDF stack を `features/sdf.npz` に出力 |
 | `compare` の `sdf` | simulation と target の 2D SDF 差分 |
 | `compare` の `sdf_material` | material ごとの SDF 差分 |
@@ -120,6 +121,30 @@ features:
 | `void_id` | void material id |
 
 `tsdf_views` は metric ではありません。`compare` の score には影響せず、`transform` で特徴量を出したい場合だけ指定します。
+
+## `udf`
+
+`udf` は `transform` 専用の 3D feature です。`sdf_raw` と同じ non-void union から、
+boundary への unsigned distance を `features/udf.npz` に保存します。
+
+```yaml
+features:
+  use: [udf]
+```
+
+出力 field:
+
+| field | 内容 |
+|---|---|
+| `udf_nm` | 3D unsigned distance、shape は `[Z,Y,X]`、単位 nm |
+| `mask` | non-void union mask |
+| `spacing_zyx_nm` | 内部 grid spacing |
+| `origin_zyx_nm` | 内部 grid origin |
+| `material_ids` | 入力に存在する material id |
+| `void_id` | void material id |
+
+初期実装の `udf` は label volume 由来です。`contour_json` から直接 UDF を作る route は、
+grid 範囲と解像度の contract を決めてから追加します。
 
 ## 内部 helper
 
