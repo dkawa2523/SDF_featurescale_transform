@@ -1,0 +1,29 @@
+task: compare-eval
+
+input:
+  index: dataset_t08_vs_run0010_pairs.csv
+
+view:
+  axes: [x, z]
+  depth_axis: y
+
+eval:
+  candidates:
+    primary:
+      features:
+        use: [sdf, contour]
+      metrics:
+        use: [cd, sdf, iou]
+    material_diagnostic:
+      features:
+        use: [sdf, contour]
+      metrics:
+        use: [cd, sdf, iou, sdf_material]
+    boundary_diagnostic:
+      features:
+        use: [sdf, contour]
+      metrics:
+        use: [cd, sdf, iou, sdf_band]
+
+output:
+  dir: ../../outputs/realdata_dataset_t08_compare_eval

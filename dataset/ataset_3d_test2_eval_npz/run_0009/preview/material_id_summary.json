@@ -1,0 +1,32 @@
+[
+  {
+    "material_id": 0,
+    "name": "mask_material",
+    "voxel_count": 243107
+  },
+  {
+    "material_id": 2,
+    "name": "void_no_material",
+    "voxel_count": 497148
+  },
+  {
+    "material_id": 5,
+    "name": "process_material_5",
+    "voxel_count": 5
+  },
+  {
+    "material_id": 6,
+    "name": "process_material_6",
+    "voxel_count": 1
+  },
+  {
+    "material_id": 9,
+    "name": "process_material_9",
+    "voxel_count": 17
+  },
+  {
+    "material_id": 10,
+    "name": "main_material",
+    "voxel_count": 1945196
+  }
+]

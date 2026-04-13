@@ -1,0 +1,12 @@
+case_id,vti_path,source_npz_path,void_id
+run_0000,dataset/ataset_3d_test2_eval_vti/run_0000/vox_t08.vti,dataset/ataset_3d_test2_eval_npz/run_0000/vox_t08.npz,2
+run_0001,dataset/ataset_3d_test2_eval_vti/run_0001/vox_t08.vti,dataset/ataset_3d_test2_eval_npz/run_0001/vox_t08.npz,2
+run_0002,dataset/ataset_3d_test2_eval_vti/run_0002/vox_t08.vti,dataset/ataset_3d_test2_eval_npz/run_0002/vox_t08.npz,2
+run_0003,dataset/ataset_3d_test2_eval_vti/run_0003/vox_t08.vti,dataset/ataset_3d_test2_eval_npz/run_0003/vox_t08.npz,2
+run_0004,dataset/ataset_3d_test2_eval_vti/run_0004/vox_t08.vti,dataset/ataset_3d_test2_eval_npz/run_0004/vox_t08.npz,2
+run_0005,dataset/ataset_3d_test2_eval_vti/run_0005/vox_t08.vti,dataset/ataset_3d_test2_eval_npz/run_0005/vox_t08.npz,2
+run_0006,dataset/ataset_3d_test2_eval_vti/run_0006/vox_t08.vti,dataset/ataset_3d_test2_eval_npz/run_0006/vox_t08.npz,2
+run_0007,dataset/ataset_3d_test2_eval_vti/run_0007/vox_t08.vti,dataset/ataset_3d_test2_eval_npz/run_0007/vox_t08.npz,2
+run_0008,dataset/ataset_3d_test2_eval_vti/run_0008/vox_t08.vti,dataset/ataset_3d_test2_eval_npz/run_0008/vox_t08.npz,2
+run_0009,dataset/ataset_3d_test2_eval_vti/run_0009/vox_t08.vti,dataset/ataset_3d_test2_eval_npz/run_0009/vox_t08.npz,2
+run_0010,dataset/ataset_3d_test2_eval_vti/run_0010/vox_t08.vti,dataset/ataset_3d_test2_eval_npz/run_0010/vox_t08.npz,2

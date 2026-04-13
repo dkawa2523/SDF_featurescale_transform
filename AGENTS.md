@@ -22,6 +22,8 @@ source of truth for planned workflow expansion.
 Current implemented workflows:
 
 - `transform`
+- `batch-transform`
+- `transform-eval`
 - `compare`
 - `batch-compare`
 
@@ -49,6 +51,10 @@ Do not bring these concepts back into the normal CLI, YAML, docs, or examples:
 Surrogate learning is an external downstream use. This package should create
 feature datasets, not train surrogate models.
 
+Here `preview` means the old user-facing preview workflow or CLI concept.
+Eval visualization is intentionally absent for now. Do not add it unless the
+user provides a new explicit design.
+
 ## YAML Policy
 
 Keep normal YAML shallow:
@@ -63,6 +69,10 @@ Keep normal YAML shallow:
 Eval workflows may use one additional block:
 
 - `eval.candidates`
+
+Process-aware transform may use one additional explicit block:
+
+- `process.enabled`
 
 Do not introduce profiles, hidden run specs, multiple config layers, or deeply
 nested options unless the user explicitly asks for that complexity.
@@ -91,16 +101,21 @@ For new methods, default to:
 - add only focused synthetic tests;
 - avoid heavy dataset tests in the default suite.
 
-For roadmap workflow work, implement in this order unless the user redirects:
+Completed roadmap work:
 
-1. `sdf_raw` feature and `feature_summary.json`
-2. `tsdf_views` feature
-3. `udf` feature
-4. `material_sdf` feature
-5. `batch-transform`
-6. `transform-eval`
-7. `compare-eval`
-8. minimal visualization
+- `sdf_raw`, `tsdf_views`, `udf`, `material_sdf`
+- `material_profile`
+- `batch-transform`
+- `transform-eval`
+- `process.enabled` and `input.reference`
+- `process_delta_profile`
+- `process_delta_sdf`
+- transform-eval scalar/profile summaries
+- minimal process-delta preview artifacts
+- `compare-eval`
+
+Next roadmap workflow work should focus on feature and metric methods, not on
+visualization, until the user provides a new visualization design.
 
 ## Broad Request Handling
 

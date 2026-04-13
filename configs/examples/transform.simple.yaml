@@ -18,6 +18,14 @@ features:
   # use: [tsdf_views]
   # Optional 3D unsigned distance to the non-void boundary:
   # use: [udf]
+  # Optional per-material 3D signed distance stack:
+  # use: [material_sdf]
+  # Optional lightweight material volume/profile summary:
+  # use: [material_profile]
+  # Optional process-aware delta features.
+  # Requires process.enabled: true and input.reference:
+  # use: [sdf_raw, material_profile, process_delta_sdf]
+  # use: [sdf_raw, material_profile, process_delta_profile]
 
 output:
   dir: ../../outputs/example_transform

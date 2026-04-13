@@ -1,0 +1,25 @@
+task: transform-eval
+
+input:
+  index: ../../data/examples/transform_cases.csv
+
+view:
+  axes: [x, z]
+  depth_axis: y
+
+eval:
+  candidates:
+    raw:
+      features:
+        use: [sdf_raw]
+
+    tsdf:
+      features:
+        use: [tsdf_views]
+
+    material:
+      features:
+        use: [material_profile]
+
+output:
+  dir: ../../outputs/example_transform_eval

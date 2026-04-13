@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import csv
 import json
 from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
 
+from wafergeo.compare.render import write_rgb_png
 from wafergeo.compare.sdf_helpers import tsdf_from_sdf_nm
 from wafergeo.core.types import LabelVolume, TSDFVolume
 from wafergeo.mesh.build import build_mesh_from_tsdf
@@ -14,6 +16,12 @@ from wafergeo.sdf.edt import signed_distance_from_mask
 from wafergeo.sdf.full_material import build_full_material_sdf
 
 TSDF_VIEW_CLIP_NM = (10.0, 30.0, 100.0)
+PROCESS_DELTA_PREVIEW_COLORS: dict[str, tuple[int, int, int]] = {
+    "unchanged": (245, 245, 245),
+    "etched": (220, 70, 70),
+    "deposited": (70, 160, 80),
+    "material_changed": (70, 110, 220),
+}
 
 
 def _array_stats(array: np.ndarray) -> dict[str, object]:
@@ -56,6 +64,11 @@ def _non_void_sdf_raw(label: LabelVolume) -> tuple[np.ndarray, np.ndarray]:
     else:
         sdf_nm = signed_distance_from_mask(non_void, spacing_zyx, backend="scipy")
     return sdf_nm.astype(np.float32, copy=False), non_void
+
+
+def _material_ids_without_void(label: LabelVolume) -> list[int]:
+    void_id = int(label.material.void_id)
+    return [int(v) for v in label.material.ids if int(v) != void_id]
 
 
 def _label_to_tsdf_volume(label: LabelVolume, *, mu_nm: float) -> TSDFVolume:
@@ -153,6 +166,529 @@ def write_label_udf_feature(label: LabelVolume, output_dir: Path) -> str:
     return str(path.name)
 
 
+def write_material_sdf_feature(label: LabelVolume, output_dir: Path) -> str:
+    labels = np.asarray(label.material_id)
+    spacing_zyx = tuple(float(v) for v in label.grid.spacing)
+    material_ids = _material_ids_without_void(label)
+    sdf_stack = np.empty((len(material_ids), *labels.shape), dtype=np.float32)
+    voxel_counts: list[int] = []
+    for index, material_id in enumerate(material_ids):
+        mask = labels == material_id
+        voxel_counts.append(int(np.count_nonzero(mask)))
+        if not np.any(mask):
+            sdf_stack[index].fill(1e6)
+        elif np.all(mask):
+            sdf_stack[index].fill(-1e6)
+        else:
+            sdf_stack[index] = signed_distance_from_mask(
+                mask,
+                spacing_zyx,
+                backend="scipy",
+            ).astype(np.float32, copy=False)
+
+    path = output_dir / "material_sdf.npz"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        path,
+        sdf_nm=sdf_stack,
+        material_ids=np.asarray(material_ids, dtype=np.int32),
+        voxel_counts=np.asarray(voxel_counts, dtype=np.int64),
+        spacing_zyx_nm=np.asarray(label.grid.spacing, dtype=np.float32),
+        origin_zyx_nm=np.asarray(label.grid.origin, dtype=np.float32),
+        void_id=np.asarray(int(label.material.void_id), dtype=np.int32),
+    )
+    return str(path.name)
+
+
+def _voxel_bbox_nm(mask: np.ndarray, label: LabelVolume) -> dict[str, float | None]:
+    if not np.any(mask):
+        return {
+            "bbox_min_z_nm": None,
+            "bbox_min_y_nm": None,
+            "bbox_min_x_nm": None,
+            "bbox_max_z_nm": None,
+            "bbox_max_y_nm": None,
+            "bbox_max_x_nm": None,
+        }
+    coords = np.argwhere(mask)
+    mins = coords.min(axis=0)
+    maxs = coords.max(axis=0)
+    origin = tuple(float(v) for v in label.grid.origin)
+    spacing = tuple(float(v) for v in label.grid.spacing)
+    return {
+        "bbox_min_z_nm": origin[0] + float(mins[0]) * spacing[0],
+        "bbox_min_y_nm": origin[1] + float(mins[1]) * spacing[1],
+        "bbox_min_x_nm": origin[2] + float(mins[2]) * spacing[2],
+        "bbox_max_z_nm": origin[0] + float(maxs[0]) * spacing[0],
+        "bbox_max_y_nm": origin[1] + float(maxs[1]) * spacing[1],
+        "bbox_max_x_nm": origin[2] + float(maxs[2]) * spacing[2],
+    }
+
+
+def _write_csv(path: Path, rows: list[dict[str, object]], fieldnames: list[str]) -> None:
+    with path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({key: row.get(key, "") for key in fieldnames})
+
+
+def write_material_profile_feature(label: LabelVolume, output_dir: Path) -> dict[str, str]:
+    labels = np.asarray(label.material_id)
+    total_voxels = int(labels.size)
+    void_id = int(label.material.void_id)
+    material_names = {
+        int(material_id): str(name)
+        for material_id, name in zip(label.material.ids, label.material.names, strict=True)
+    }
+    present_ids = sorted(int(v) for v in np.unique(labels).tolist())
+    spacing_zyx = tuple(float(v) for v in label.grid.spacing)
+    origin_zyx = tuple(float(v) for v in label.grid.origin)
+
+    material_rows: list[dict[str, object]] = []
+    z_rows: list[dict[str, object]] = []
+    material_summaries: list[dict[str, object]] = []
+
+    for material_id in present_ids:
+        mask = labels == material_id
+        voxel_count = int(np.count_nonzero(mask))
+        voxel_fraction = float(voxel_count / total_voxels) if total_voxels else 0.0
+        bbox = _voxel_bbox_nm(mask, label)
+        material_name = material_names.get(material_id, f"material_{material_id}")
+        row: dict[str, object] = {
+            "material_id": material_id,
+            "material_name": material_name,
+            "is_void": str(material_id == void_id).lower(),
+            "voxel_count": voxel_count,
+            "voxel_fraction": voxel_fraction,
+            **bbox,
+        }
+        material_rows.append(row)
+        material_summaries.append(
+            {
+                **row,
+                "is_void": material_id == void_id,
+            }
+        )
+
+        z_counts = np.count_nonzero(mask, axis=(1, 2))
+        slice_voxels = int(labels.shape[1] * labels.shape[2])
+        for z_index, z_count in enumerate(z_counts.tolist()):
+            z_rows.append(
+                {
+                    "z_index": int(z_index),
+                    "z_nm": origin_zyx[0] + float(z_index) * spacing_zyx[0],
+                    "material_id": material_id,
+                    "material_name": material_name,
+                    "is_void": str(material_id == void_id).lower(),
+                    "voxel_count": int(z_count),
+                    "slice_fraction": float(z_count / slice_voxels) if slice_voxels else 0.0,
+                }
+            )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    profile_path = output_dir / "material_profile.csv"
+    z_profile_path = output_dir / "material_profile_z_profile.csv"
+    summary_path = output_dir / "material_profile_summary.json"
+    _write_csv(
+        profile_path,
+        material_rows,
+        [
+            "material_id",
+            "material_name",
+            "is_void",
+            "voxel_count",
+            "voxel_fraction",
+            "bbox_min_z_nm",
+            "bbox_min_y_nm",
+            "bbox_min_x_nm",
+            "bbox_max_z_nm",
+            "bbox_max_y_nm",
+            "bbox_max_x_nm",
+        ],
+    )
+    _write_csv(
+        z_profile_path,
+        z_rows,
+        [
+            "z_index",
+            "z_nm",
+            "material_id",
+            "material_name",
+            "is_void",
+            "voxel_count",
+            "slice_fraction",
+        ],
+    )
+    summary_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "material_profile/v1",
+                "feature": "material_profile",
+                "axis_order_internal": "ZYX",
+                "units": label.grid.units,
+                "shape_zyx": [int(v) for v in labels.shape],
+                "spacing_zyx_nm": [float(v) for v in spacing_zyx],
+                "origin_zyx_nm": [float(v) for v in origin_zyx],
+                "void_id": void_id,
+                "total_voxels": total_voxels,
+                "material_count": len(present_ids),
+                "material_ids": present_ids,
+                "materials": material_summaries,
+            },
+            ensure_ascii=True,
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "material_profile": profile_path.name,
+        "material_profile_z_profile": z_profile_path.name,
+        "material_profile_summary": summary_path.name,
+    }
+
+
+def _material_name_map(label: LabelVolume) -> dict[int, str]:
+    return {
+        int(material_id): str(name)
+        for material_id, name in zip(label.material.ids, label.material.names, strict=True)
+    }
+
+
+def _change_type(
+    *,
+    initial_material_id: int,
+    final_material_id: int,
+    initial_void_id: int,
+    final_void_id: int,
+) -> str:
+    initial_is_void = initial_material_id == initial_void_id
+    final_is_void = final_material_id == final_void_id
+    if not initial_is_void and final_is_void:
+        return "etched"
+    if initial_is_void and not final_is_void:
+        return "deposited"
+    return "material_changed"
+
+
+def write_process_delta_profile_feature(
+    *,
+    reference_label: LabelVolume,
+    final_label: LabelVolume,
+    output_dir: Path,
+) -> dict[str, str]:
+    initial = np.asarray(reference_label.material_id)
+    final = np.asarray(final_label.material_id)
+    total_voxels = int(final.size)
+    initial_void_id = int(reference_label.material.void_id)
+    final_void_id = int(final_label.material.void_id)
+    initial_names = _material_name_map(reference_label)
+    final_names = _material_name_map(final_label)
+    changed = initial != final
+    transition_rows: list[dict[str, object]] = []
+    z_rows: list[dict[str, object]] = []
+    transition_summaries: list[dict[str, object]] = []
+
+    changed_pairs = sorted(
+        {
+            (int(initial_id), int(final_id))
+            for initial_id, final_id in zip(initial[changed], final[changed], strict=True)
+        }
+    )
+    for initial_id, final_id in changed_pairs:
+        mask = np.logical_and(initial == initial_id, final == final_id)
+        voxel_count = int(np.count_nonzero(mask))
+        voxel_fraction = float(voxel_count / total_voxels) if total_voxels else 0.0
+        transition_key = f"{initial_id}_to_{final_id}"
+        change_type = _change_type(
+            initial_material_id=initial_id,
+            final_material_id=final_id,
+            initial_void_id=initial_void_id,
+            final_void_id=final_void_id,
+        )
+        bbox = _voxel_bbox_nm(mask, final_label)
+        row: dict[str, object] = {
+            "transition_key": transition_key,
+            "change_type": change_type,
+            "initial_material_id": initial_id,
+            "initial_material_name": initial_names.get(initial_id, f"material_{initial_id}"),
+            "final_material_id": final_id,
+            "final_material_name": final_names.get(final_id, f"material_{final_id}"),
+            "voxel_count": voxel_count,
+            "voxel_fraction": voxel_fraction,
+            **bbox,
+        }
+        transition_rows.append(row)
+        transition_summaries.append(row)
+
+        z_counts = np.count_nonzero(mask, axis=(1, 2))
+        slice_voxels = int(final.shape[1] * final.shape[2])
+        for z_index, z_count in enumerate(z_counts.tolist()):
+            z_rows.append(
+                {
+                    "z_index": int(z_index),
+                    "z_nm": float(final_label.grid.origin[0])
+                    + float(z_index) * float(final_label.grid.spacing[0]),
+                    "transition_key": transition_key,
+                    "change_type": change_type,
+                    "initial_material_id": initial_id,
+                    "final_material_id": final_id,
+                    "voxel_count": int(z_count),
+                    "slice_fraction": float(z_count / slice_voxels) if slice_voxels else 0.0,
+                }
+            )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    profile_path = output_dir / "process_delta_profile.csv"
+    z_profile_path = output_dir / "process_delta_z_profile.csv"
+    summary_path = output_dir / "process_delta_summary.json"
+    _write_csv(
+        profile_path,
+        transition_rows,
+        [
+            "transition_key",
+            "change_type",
+            "initial_material_id",
+            "initial_material_name",
+            "final_material_id",
+            "final_material_name",
+            "voxel_count",
+            "voxel_fraction",
+            "bbox_min_z_nm",
+            "bbox_min_y_nm",
+            "bbox_min_x_nm",
+            "bbox_max_z_nm",
+            "bbox_max_y_nm",
+            "bbox_max_x_nm",
+        ],
+    )
+    _write_csv(
+        z_profile_path,
+        z_rows,
+        [
+            "z_index",
+            "z_nm",
+            "transition_key",
+            "change_type",
+            "initial_material_id",
+            "final_material_id",
+            "voxel_count",
+            "slice_fraction",
+        ],
+    )
+    summary_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "process_delta_profile/v1",
+                "feature": "process_delta_profile",
+                "axis_order_internal": "ZYX",
+                "units": final_label.grid.units,
+                "shape_zyx": [int(v) for v in final.shape],
+                "spacing_zyx_nm": [float(v) for v in final_label.grid.spacing],
+                "origin_zyx_nm": [float(v) for v in final_label.grid.origin],
+                "initial_void_id": initial_void_id,
+                "final_void_id": final_void_id,
+                "total_voxels": total_voxels,
+                "changed_voxels": int(np.count_nonzero(changed)),
+                "changed_fraction": (
+                    float(np.count_nonzero(changed) / total_voxels) if total_voxels else 0.0
+                ),
+                "transition_count": len(transition_rows),
+                "transitions": transition_summaries,
+            },
+            ensure_ascii=True,
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "process_delta_profile": profile_path.name,
+        "process_delta_z_profile": z_profile_path.name,
+        "process_delta_summary": summary_path.name,
+    }
+
+
+def _delta_sdf_from_mask(mask: np.ndarray, spacing_zyx: tuple[float, float, float]) -> np.ndarray:
+    if not np.any(mask):
+        return np.full(mask.shape, 1e6, dtype=np.float32)
+    if np.all(mask):
+        return np.full(mask.shape, -1e6, dtype=np.float32)
+    return signed_distance_from_mask(mask, spacing_zyx, backend="scipy").astype(
+        np.float32,
+        copy=False,
+    )
+
+
+def _preview_scale(shape_yx: tuple[int, int], *, min_size: int = 384, max_scale: int = 8) -> int:
+    smallest = max(min(shape_yx), 1)
+    if smallest >= min_size:
+        return 1
+    return max(1, min(max_scale, int(np.ceil(min_size / smallest))))
+
+
+def _process_delta_preview_y_index(changed_mask: np.ndarray) -> int:
+    if changed_mask.ndim != 3:
+        raise ValueError("process delta masks must be 3D ZYX arrays")
+    changed_per_y = np.count_nonzero(changed_mask, axis=(0, 2))
+    if np.any(changed_per_y):
+        return int(np.argmax(changed_per_y))
+    return int(changed_mask.shape[1] // 2)
+
+
+def _write_process_delta_preview(
+    *,
+    output_dir: Path,
+    masks: dict[str, np.ndarray],
+    final_label: LabelVolume,
+) -> dict[str, object]:
+    y_index = _process_delta_preview_y_index(masks["changed"])
+    z_x_shape = masks["changed"][:, y_index, :].shape
+    rgb = np.full(
+        z_x_shape + (3,),
+        PROCESS_DELTA_PREVIEW_COLORS["unchanged"],
+        dtype=np.uint8,
+    )
+    for name in ("etched", "deposited", "material_changed"):
+        rgb[masks[name][:, y_index, :]] = np.asarray(
+            PROCESS_DELTA_PREVIEW_COLORS[name],
+            dtype=np.uint8,
+        )
+    rgb = np.flipud(rgb)
+    display_scale = _preview_scale((int(z_x_shape[0]), int(z_x_shape[1])))
+    if display_scale > 1:
+        rgb = np.repeat(np.repeat(rgb, display_scale, axis=0), display_scale, axis=1)
+
+    preview_path = output_dir / "process_delta_sdf_preview.png"
+    write_rgb_png(preview_path, rgb)
+    y_nm = float(final_label.grid.origin[1]) + float(y_index) * float(final_label.grid.spacing[1])
+    return {
+        "preview": preview_path.name,
+        "view": "xz",
+        "y_index": y_index,
+        "y_nm": y_nm,
+        "display_scale": display_scale,
+        "colors": {
+            name: {"rgb": list(rgb_value)}
+            for name, rgb_value in PROCESS_DELTA_PREVIEW_COLORS.items()
+        },
+    }
+
+
+def write_process_delta_sdf_feature(
+    *,
+    reference_label: LabelVolume,
+    final_label: LabelVolume,
+    output_dir: Path,
+) -> dict[str, str]:
+    initial = np.asarray(reference_label.material_id)
+    final = np.asarray(final_label.material_id)
+    initial_void_id = int(reference_label.material.void_id)
+    final_void_id = int(final_label.material.void_id)
+    spacing_zyx = (
+        float(final_label.grid.spacing[0]),
+        float(final_label.grid.spacing[1]),
+        float(final_label.grid.spacing[2]),
+    )
+
+    changed = initial != final
+    initial_void = initial == initial_void_id
+    final_void = final == final_void_id
+    etched = np.logical_and(~initial_void, final_void)
+    deposited = np.logical_and(initial_void, ~final_void)
+    material_changed = np.logical_and.reduce((~initial_void, ~final_void, changed))
+    masks = {
+        "changed": changed,
+        "etched": etched,
+        "deposited": deposited,
+        "material_changed": material_changed,
+    }
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / "process_delta_sdf.npz"
+    arrays: dict[str, np.ndarray] = {
+        "spacing_zyx_nm": np.asarray(final_label.grid.spacing, dtype=np.float32),
+        "origin_zyx_nm": np.asarray(final_label.grid.origin, dtype=np.float32),
+        "initial_void_id": np.asarray(initial_void_id, dtype=np.int32),
+        "final_void_id": np.asarray(final_void_id, dtype=np.int32),
+    }
+    summary_masks: dict[str, dict[str, object]] = {}
+    for name, mask in masks.items():
+        arrays[f"{name}_mask"] = mask.astype(np.uint8, copy=False)
+        arrays[f"{name}_sdf_nm"] = _delta_sdf_from_mask(mask, spacing_zyx)
+        voxel_count = int(np.count_nonzero(mask))
+        summary_masks[name] = {
+            "voxel_count": voxel_count,
+            "voxel_fraction": float(voxel_count / final.size) if final.size else 0.0,
+            **_voxel_bbox_nm(mask, final_label),
+        }
+
+    np.savez_compressed(path, **arrays)  # type: ignore[arg-type]
+
+    preview_info = _write_process_delta_preview(
+        output_dir=output_dir,
+        masks=masks,
+        final_label=final_label,
+    )
+    legend_path = output_dir / "process_delta_sdf_legend.json"
+    legend_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "process_delta_sdf_legend/v1",
+                "feature": "process_delta_sdf",
+                "preview": preview_info,
+                "category_meaning": {
+                    "unchanged": "same material id before and after process",
+                    "etched": "initial non-void material became final void",
+                    "deposited": "initial void became final non-void material",
+                    "material_changed": (
+                        "initial and final are both non-void, but material id changed"
+                    ),
+                },
+                "category_priority": ["etched", "deposited", "material_changed"],
+            },
+            ensure_ascii=True,
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    summary_path = output_dir / "process_delta_sdf_summary.json"
+    summary_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "process_delta_sdf/v1",
+                "feature": "process_delta_sdf",
+                "axis_order_internal": "ZYX",
+                "units": final_label.grid.units,
+                "shape_zyx": [int(v) for v in final.shape],
+                "spacing_zyx_nm": [float(v) for v in final_label.grid.spacing],
+                "origin_zyx_nm": [float(v) for v in final_label.grid.origin],
+                "initial_void_id": initial_void_id,
+                "final_void_id": final_void_id,
+                "total_voxels": int(final.size),
+                "changed_voxels": int(np.count_nonzero(changed)),
+                "changed_fraction": (
+                    float(np.count_nonzero(changed) / final.size) if final.size else 0.0
+                ),
+                "masks": summary_masks,
+            },
+            ensure_ascii=True,
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "process_delta_sdf": path.name,
+        "process_delta_sdf_legend": legend_path.name,
+        "process_delta_sdf_preview": str(preview_info["preview"]),
+        "process_delta_sdf_summary": summary_path.name,
+    }
+
+
 def write_transform_feature_summary(
     *,
     label: LabelVolume,
@@ -161,7 +697,12 @@ def write_transform_feature_summary(
 ) -> str:
     features: list[dict[str, object]] = []
     for name, filename in sorted(written.items()):
-        if name.endswith("_summary"):
+        if (
+            name.endswith("_summary")
+            or name.endswith("_z_profile")
+            or name.endswith("_legend")
+            or name.endswith("_preview")
+        ):
             continue
         path = output_dir / filename
         row: dict[str, object] = {
@@ -224,6 +765,109 @@ def write_transform_feature_summary(
                     "source_feature": "sdf_raw",
                     "source_region": "non_void_union_boundary",
                     "array": _array_stats(udf_nm),
+                }
+            )
+        elif name == "material_sdf" and path.exists():
+            with np.load(path, allow_pickle=False) as data:
+                sdf_nm = np.asarray(data["sdf_nm"], dtype=np.float32)
+                material_ids = [int(v) for v in np.asarray(data["material_ids"]).tolist()]
+                voxel_counts = [int(v) for v in np.asarray(data["voxel_counts"]).tolist()]
+            row.update(
+                {
+                    "semantics": "per_material_signed_distance",
+                    "units": label.grid.units,
+                    "axis_order_internal": "MZYX",
+                    "axis_order_user": ["material", "x", "y", "z"],
+                    "spacing_zyx_nm": [float(v) for v in label.grid.spacing],
+                    "origin_zyx_nm": [float(v) for v in label.grid.origin],
+                    "void_id": int(label.material.void_id),
+                    "material_ids": material_ids,
+                    "voxel_counts": voxel_counts,
+                    "inside_sign": "negative",
+                    "outside_sign": "positive",
+                    "source_region": "per_material_mask",
+                    "array": _array_stats(sdf_nm),
+                }
+            )
+        elif name == "material_profile" and path.exists():
+            summary_path = output_dir / "material_profile_summary.json"
+            material_summary: dict[str, object] = {}
+            if summary_path.exists():
+                material_summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            row.update(
+                {
+                    "semantics": "per_material_profile",
+                    "units": label.grid.units,
+                    "axis_order_internal": "ZYX",
+                    "axis_order_user": ["x", "y", "z"],
+                    "spacing_zyx_nm": [float(v) for v in label.grid.spacing],
+                    "origin_zyx_nm": [float(v) for v in label.grid.origin],
+                    "void_id": int(label.material.void_id),
+                    "material_ids": material_summary.get(
+                        "material_ids",
+                        [int(v) for v in label.material.ids],
+                    ),
+                    "material_count": material_summary.get("material_count"),
+                    "source_region": "label_material_ids",
+                    "outputs": {
+                        "profile": "material_profile.csv",
+                        "z_profile": "material_profile_z_profile.csv",
+                        "summary": "material_profile_summary.json",
+                    },
+                }
+            )
+        elif name == "process_delta_profile" and path.exists():
+            summary_path = output_dir / "process_delta_summary.json"
+            delta_summary: dict[str, object] = {}
+            if summary_path.exists():
+                delta_summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            row.update(
+                {
+                    "semantics": "process_delta_profile",
+                    "units": label.grid.units,
+                    "axis_order_internal": "ZYX",
+                    "axis_order_user": ["x", "y", "z"],
+                    "spacing_zyx_nm": [float(v) for v in label.grid.spacing],
+                    "origin_zyx_nm": [float(v) for v in label.grid.origin],
+                    "void_id": int(label.material.void_id),
+                    "source_region": "changed_material_transitions",
+                    "changed_voxels": delta_summary.get("changed_voxels"),
+                    "changed_fraction": delta_summary.get("changed_fraction"),
+                    "transition_count": delta_summary.get("transition_count"),
+                    "outputs": {
+                        "profile": "process_delta_profile.csv",
+                        "z_profile": "process_delta_z_profile.csv",
+                        "summary": "process_delta_summary.json",
+                    },
+                }
+            )
+        elif name == "process_delta_sdf" and path.exists():
+            with np.load(path, allow_pickle=False) as data:
+                changed_sdf_nm = np.asarray(data["changed_sdf_nm"], dtype=np.float32)
+            summary_path = output_dir / "process_delta_sdf_summary.json"
+            process_summary: dict[str, object] = {}
+            if summary_path.exists():
+                process_summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            row.update(
+                {
+                    "semantics": "process_delta_signed_distance",
+                    "units": label.grid.units,
+                    "axis_order_internal": "ZYX",
+                    "axis_order_user": ["x", "y", "z"],
+                    "spacing_zyx_nm": [float(v) for v in label.grid.spacing],
+                    "origin_zyx_nm": [float(v) for v in label.grid.origin],
+                    "void_id": int(label.material.void_id),
+                    "source_region": "changed_material_regions",
+                    "inside_sign": "negative",
+                    "outside_sign": "positive",
+                    "changed_voxels": process_summary.get("changed_voxels"),
+                    "changed_fraction": process_summary.get("changed_fraction"),
+                    "outputs": {
+                        "legend": "process_delta_sdf_legend.json",
+                        "preview": "process_delta_sdf_preview.png",
+                        "summary": "process_delta_sdf_summary.json",
+                    },
+                    "array": _array_stats(changed_sdf_nm),
                 }
             )
         features.append(row)

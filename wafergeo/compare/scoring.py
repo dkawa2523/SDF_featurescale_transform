@@ -64,6 +64,42 @@ class ScoreResult:
         return payload
 
 
+def objective_payload(score: ScoreResult) -> dict[str, object]:
+    skipped = [row.name for row in score.metrics if row.status == "SKIPPED"]
+    return {
+        "schema_version": "objective/v1",
+        "status": "OK" if not skipped else "PARTIAL",
+        "direction": "minimize",
+        "objective_name": "normalized_total_score",
+        "objective": score.normalized_total_score,
+        "total_score": score.total_score,
+        "metrics": {
+            row.name: {
+                "loss": row.loss,
+                "normalized_loss": row.normalized_loss,
+                "value": row.value,
+                "status": row.status,
+            }
+            for row in score.metrics
+        },
+        "skipped_metrics": skipped,
+        "failed_metrics": [],
+    }
+
+
+def objective_csv_row(case_id: str, score: ScoreResult) -> dict[str, object]:
+    skipped = [row.name for row in score.metrics if row.status == "SKIPPED"]
+    return {
+        "case_id": case_id,
+        "status": "OK" if not skipped else "PARTIAL",
+        "objective": score.normalized_total_score,
+        "objective_name": "normalized_total_score",
+        "direction": "minimize",
+        "total_score": score.total_score,
+        "skipped_metrics": "|".join(skipped),
+    }
+
+
 def _compact_detail_summary(row: MetricRow, detail: dict[str, object]) -> dict[str, object]:
     summary: dict[str, object] = {
         "metric": row.name,
@@ -166,6 +202,10 @@ def write_score_outputs(score: ScoreResult, output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "score.json").write_text(
         json.dumps(score.to_dict(), ensure_ascii=True, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    (output_dir / "objective.json").write_text(
+        json.dumps(objective_payload(score), ensure_ascii=True, indent=2, sort_keys=True),
         encoding="utf-8",
     )
     with (output_dir / "metrics.csv").open("w", encoding="utf-8", newline="") as f:

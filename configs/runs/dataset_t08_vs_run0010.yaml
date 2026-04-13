@@ -11,7 +11,7 @@ features:
   use: [sdf, contour]
 
 metrics:
-  use: [cd, chamfer, profile, corner, sdf, sdf_material, sdf_band, iou, topology]
+  use: [cd, sdf, iou]
 
 output:
   dir: ../../outputs/realdata_dataset_t08_vs_run0010

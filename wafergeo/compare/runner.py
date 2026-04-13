@@ -34,6 +34,7 @@ from wafergeo.compare.render import (
 from wafergeo.compare.runtime_io import resolve_path, write_json, write_run_info
 from wafergeo.compare.schema import (
     CompareSpec,
+    TransformSpec,
     load_compare_spec_yaml,
     load_transform_spec_yaml,
 )
@@ -58,9 +59,39 @@ def run_transform_from_config(config_path: str | Path) -> dict[str, object]:
     spec = load_transform_spec_yaml(config_file)
     base_dir = config_file.parent
     out_dir = resolve_path(spec.output.dir, base_dir=base_dir)
+    return run_transform_spec(
+        spec=spec,
+        config_file=config_file,
+        base_dir=base_dir,
+        output_dir=out_dir,
+        write_run_metadata=True,
+    )
+
+
+def run_transform_spec(
+    *,
+    spec: TransformSpec,
+    config_file: Path,
+    base_dir: Path,
+    output_dir: Path,
+    write_run_metadata: bool,
+) -> dict[str, object]:
+    out_dir = output_dir
     features_dir = out_dir / "features"
     sim_path = resolve_path(spec.simulation.path, base_dir=base_dir)
     label = load_simulation_label(spec.simulation.kind, sim_path, void_id=spec.simulation.void_id)
+    reference_path: Path | None = None
+    reference_label: LabelVolume | None = None
+    if spec.process.enabled:
+        if spec.reference is None:
+            raise ValueError("process.enabled requires input.reference")
+        reference_path = resolve_path(spec.reference.path, base_dir=base_dir)
+        reference_label = load_simulation_label(
+            spec.reference.kind,
+            reference_path,
+            void_id=spec.reference.void_id,
+        )
+        _require_compatible_label_volume(reference_label, label)
     view_feature = extract_view_feature(
         label,
         axes=spec.view.axes,
@@ -71,23 +102,34 @@ def run_transform_from_config(config_path: str | Path) -> dict[str, object]:
         view_feature=view_feature,
         feature_names=spec.features.use,
         output_dir=features_dir,
+        reference_label=reference_label,
     )
     summary: dict[str, object] = {
         "task": "transform",
         "status": "OK",
         "input": {"kind": spec.simulation.kind, "path": str(sim_path)},
+        "process": {"enabled": spec.process.enabled},
         "view": asdict(spec.view),
         "features": written,
         "feature_summary": "feature_summary.json",
         "label_summary": "label_summary.json",
         "output_dir": str(out_dir),
     }
+    if reference_path is not None and spec.reference is not None:
+        summary["reference"] = {
+            "kind": spec.reference.kind,
+            "path": str(reference_path),
+            "void_id": spec.reference.void_id,
+        }
+    label_summary_payload: dict[str, object] = {
+        "label_volume": summarize_label_volume(label),
+        "view": summarize_view_feature(view_feature),
+    }
+    if reference_label is not None:
+        label_summary_payload["reference_label_volume"] = summarize_label_volume(reference_label)
     write_json_summary(
         out_dir / "label_summary.json",
-        {
-            "label_volume": summarize_label_volume(label),
-            "view": summarize_view_feature(view_feature),
-        },
+        label_summary_payload,
     )
     write_label_preview_png(
         out_dir / "preview.png",
@@ -95,13 +137,45 @@ def run_transform_from_config(config_path: str | Path) -> dict[str, object]:
         void_id=view_feature.void_id,
     )
     write_json(out_dir / "summary.json", summary)
-    write_run_info(
-        config_path=config_file,
-        output_dir=out_dir,
-        task="transform",
-        inputs={"simulation": str(sim_path)},
-    )
+    if write_run_metadata:
+        inputs = {"simulation": str(sim_path)}
+        if reference_path is not None:
+            inputs["reference"] = str(reference_path)
+        write_run_info(
+            config_path=config_file,
+            output_dir=out_dir,
+            task="transform",
+            inputs=inputs,
+        )
     return summary
+
+
+def _require_compatible_label_volume(reference: LabelVolume, label: LabelVolume) -> None:
+    if reference.material_id.shape != label.material_id.shape:
+        raise ValueError(
+            "input.reference and input.simulation shapes differ: "
+            f"{reference.material_id.shape} != {label.material_id.shape}"
+        )
+    if reference.grid.axis_order != label.grid.axis_order:
+        raise ValueError(
+            "input.reference and input.simulation axis_order differ: "
+            f"{reference.grid.axis_order} != {label.grid.axis_order}"
+        )
+    if not np.allclose(reference.grid.spacing, label.grid.spacing):
+        raise ValueError(
+            "input.reference and input.simulation spacing differ: "
+            f"{reference.grid.spacing} != {label.grid.spacing}"
+        )
+    if not np.allclose(reference.grid.origin, label.grid.origin):
+        raise ValueError(
+            "input.reference and input.simulation origin differ: "
+            f"{reference.grid.origin} != {label.grid.origin}"
+        )
+    if int(reference.material.void_id) != int(label.material.void_id):
+        raise ValueError(
+            "input.reference and input.simulation void_id differ: "
+            f"{reference.material.void_id} != {label.material.void_id}"
+        )
 
 
 def _simulation_label_and_feature(
@@ -312,6 +386,7 @@ def run_compare_spec(
     write_run_metadata: bool,
     prepared_target: PreparedTarget | None = None,
     write_target_features: bool = True,
+    write_case_outputs: bool = True,
 ) -> tuple[ScoreResult, dict[str, object]]:
     sim_path = resolve_path(spec.simulation.path, base_dir=base_dir)
     target_path = resolve_path(spec.target.path, base_dir=base_dir)
@@ -329,42 +404,45 @@ def run_compare_spec(
         target_summary_payload = prepared_target.summary_payload
     _require_compatible_view_grid(sim_feature, target_feature)
     feature_names = set(spec.features.use)
-    _write_compare_features(
-        sim_feature=sim_feature,
-        target_feature=target_feature,
-        feature_names=feature_names,
-        output_dir=output_dir,
-        write_target_features=write_target_features,
-    )
     score = score_features(sim_feature, target_feature, spec.metrics)
-    write_score_outputs(score, output_dir)
-    write_per_material_sdf_csv(output_dir / "per_material_sdf.csv", score.metric_details)
-    write_material_confusion_outputs(
-        output_dir,
-        sim_feature=sim_feature,
-        target_feature=target_feature,
-    )
-    write_cd_profile_png(output_dir / "cd_profile.png", score.cd_profile)
-    sim_summary_file = _write_input_summary(
-        output_dir=output_dir,
-        prefix="simulation",
-        feature=sim_feature,
-        label=sim_label,
-    )
-    target_summary_file = _write_input_summary(
-        output_dir=output_dir,
-        prefix="target",
-        feature=target_feature,
-        label=target_label,
-        payload=target_summary_payload,
-    )
+    sim_summary_file = ""
+    target_summary_file = ""
     diff_summary: dict[str, int | str] | None = None
-    if spec.output.difference_image:
-        diff_summary = _write_compare_difference(
+    if write_case_outputs:
+        _write_compare_features(
             sim_feature=sim_feature,
             target_feature=target_feature,
+            feature_names=feature_names,
             output_dir=output_dir,
+            write_target_features=write_target_features,
         )
+        write_score_outputs(score, output_dir)
+        write_per_material_sdf_csv(output_dir / "per_material_sdf.csv", score.metric_details)
+        write_material_confusion_outputs(
+            output_dir,
+            sim_feature=sim_feature,
+            target_feature=target_feature,
+        )
+        write_cd_profile_png(output_dir / "cd_profile.png", score.cd_profile)
+        sim_summary_file = _write_input_summary(
+            output_dir=output_dir,
+            prefix="simulation",
+            feature=sim_feature,
+            label=sim_label,
+        )
+        target_summary_file = _write_input_summary(
+            output_dir=output_dir,
+            prefix="target",
+            feature=target_feature,
+            label=target_label,
+            payload=target_summary_payload,
+        )
+        if spec.output.difference_image:
+            diff_summary = _write_compare_difference(
+                sim_feature=sim_feature,
+                target_feature=target_feature,
+                output_dir=output_dir,
+            )
     summary: dict[str, object] = {
         "task": "compare",
         "status": "OK",

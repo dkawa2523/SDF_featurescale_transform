@@ -1,0 +1,7 @@
+case_id,simulation_kind,simulation_path,simulation_void_id,target_kind,target_path,target_void_id
+run_0010,npz_label,../../dataset/ataset_3d_test2_eval_npz/run_0010/vox_t08.npz,2,npz_label,../../dataset/ataset_3d_test2_eval_npz/run_0010/vox_t08.npz,2
+run_0006,npz_label,../../dataset/ataset_3d_test2_eval_npz/run_0006/vox_t08.npz,2,npz_label,../../dataset/ataset_3d_test2_eval_npz/run_0010/vox_t08.npz,2
+run_0009,npz_label,../../dataset/ataset_3d_test2_eval_npz/run_0009/vox_t08.npz,2,npz_label,../../dataset/ataset_3d_test2_eval_npz/run_0010/vox_t08.npz,2
+run_0002,npz_label,../../dataset/ataset_3d_test2_eval_npz/run_0002/vox_t08.npz,2,npz_label,../../dataset/ataset_3d_test2_eval_npz/run_0010/vox_t08.npz,2
+run_0000,npz_label,../../dataset/ataset_3d_test2_eval_npz/run_0000/vox_t08.npz,2,npz_label,../../dataset/ataset_3d_test2_eval_npz/run_0010/vox_t08.npz,2
+run_0005,npz_label,../../dataset/ataset_3d_test2_eval_npz/run_0005/vox_t08.npz,2,npz_label,../../dataset/ataset_3d_test2_eval_npz/run_0010/vox_t08.npz,2

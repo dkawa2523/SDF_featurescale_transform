@@ -1,0 +1,3 @@
+case_id,input_kind,input_path
+sim_case,npz_label,sim_case.npz
+target_case,npz_label,target_case.npz

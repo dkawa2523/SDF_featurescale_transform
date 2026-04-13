@@ -74,6 +74,7 @@ output:
     assert summary["target_cache"]["shared_targets"]
     assert (out / "ranking.csv").exists()
     assert (out / "ranking_top.png").exists()
+    assert (out / "objectives.csv").exists()
     assert (out / "metrics.csv").exists()
     assert (out / "metric_summary.csv").exists()
     assert (out / "material_confusion.csv").exists()
@@ -86,6 +87,10 @@ output:
     assert ranking[0]["case_id"] == "good"
     assert "normalized_total_score" in ranking[0]
     assert "total_score" in ranking[0]
+    objectives = list(csv.DictReader((out / "objectives.csv").open("r", encoding="utf-8")))
+    assert {row["case_id"] for row in objectives} == {"good", "shifted"}
+    assert objectives[0]["objective_name"] == "normalized_total_score"
+    assert objectives[0]["direction"] == "minimize"
     metrics = list(csv.DictReader((out / "metrics.csv").open("r", encoding="utf-8")))
     assert "normalized_loss" in metrics[0]
     assert "loss_scale" in metrics[0]

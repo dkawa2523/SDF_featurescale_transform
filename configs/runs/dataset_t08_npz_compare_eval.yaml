@@ -1,0 +1,29 @@
+task: compare-eval
+
+input:
+  index: dataset_t08_npz_compare_eval_pairs.csv
+
+view:
+  axes: [x, y]
+  depth_axis: z
+
+eval:
+  candidates:
+    primary:
+      features:
+        use: [sdf, contour]
+      metrics:
+        use: [sdf, iou]
+    material_diagnostic:
+      features:
+        use: [sdf, contour]
+      metrics:
+        use: [sdf, iou, sdf_material]
+    boundary_diagnostic:
+      features:
+        use: [sdf, contour]
+      metrics:
+        use: [sdf, iou, sdf_band]
+
+output:
+  dir: ../../outputs/realdata_dataset_t08_npz_compare_eval

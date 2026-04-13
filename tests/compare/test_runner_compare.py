@@ -50,6 +50,7 @@ def test_compare_outputs_scores_and_difference(tmp_path: Path) -> None:
 
     assert summary["status"] == "OK"
     assert (out / "score.json").exists()
+    assert (out / "objective.json").exists()
     assert (out / "metrics.csv").exists()
     assert (out / "metric_details.json").exists()
     assert (out / "difference.png").exists()
@@ -63,9 +64,17 @@ def test_compare_outputs_scores_and_difference(tmp_path: Path) -> None:
     assert (out / "_run" / "used_config.yaml").exists()
 
     score = json.loads((out / "score.json").read_text(encoding="utf-8"))
+    objective = json.loads((out / "objective.json").read_text(encoding="utf-8"))
     metric_names = {row["name"] for row in score["metrics"]}
     assert {"cd", "chamfer", "sdf", "iou"} <= metric_names
     assert "normalized_total_score" in score
+    assert objective["schema_version"] == "objective/v1"
+    assert objective["status"] == "PARTIAL"
+    assert objective["direction"] == "minimize"
+    assert objective["objective_name"] == "normalized_total_score"
+    assert objective["objective"] == score["normalized_total_score"]
+    assert set(objective["metrics"]) >= {"cd", "chamfer", "sdf", "iou"}
+    assert objective["skipped_metrics"]
     assert all("normalized_loss" in row for row in score["metrics"])
     assert {row["metric"] for row in score["metric_details"]} == {"sdf", "iou"}
     details_payload = json.loads((out / "metric_details.json").read_text(encoding="utf-8"))

@@ -1,81 +1,63 @@
-# wafergeo ドキュメント
+# wafergeo
 
-`wafergeo` は、シミュレーションや実験由来の形状データを
-**特徴量化**し、必要に応じて **形状比較の指標を計算**するためのパッケージです。
+`wafergeo` は、半導体プロセスのシミュレーション形状や実測由来の形状を、
+解析しやすい特徴量へ変換し、必要に応じてターゲット形状と比較するための
+小さな Python パッケージです。
 
-このドキュメントは、初めて使う人と、あとから手法を追加する開発者の両方が迷わないように、
-「どこを編集するか」「何が出力されるか」「どこを改修すればよいか」を中心に整理しています。
+このコードの責務は、特徴量データセットと比較 loss を作るところまでです。
+サロゲートモデルの学習、シミュレーション実行、最適化サンプラーは外部で扱います。
 
-## まず読む資料
+## できること
 
-| 読むもの | 対象 | 内容 |
-| --- | --- | --- |
-| [ユーザーマニュアル](UserManual.md) | 利用者 | 実行方法、YAML の書き方、出力の読み方 |
-| [クイックスタート](Quickstart.md) | 利用者 | 最短で `transform / compare / batch-compare` を動かす手順 |
-| [設定の所在マップ](SettingsMap.md) | 利用者、開発者 | どこを設定し、どこが生成物か |
-| [開発者マニュアル](DeveloperManual.md) | 改修者 | コード全体の読み方、変更判断、検証方法 |
-| [拡張ガイド](ExtensionGuide.md) | 改修者 | loader / feature / metric の追加手順 |
-| [特徴量化・評価ロードマップ](WorkflowRoadmap.md) | 利用者、改修者、データサイエンティスト | transform / compare 系 workflow の将来像、評価指標、実装順 |
-| [保守運用ポリシー](MaintenancePolicy.md) | 改修者、Codex 利用者 | 設計の肥大化、過剰実装、過度なテストを防ぐルール |
-| [改良計画](ImprovementPlan.md) | 改修者、データサイエンティスト | 現在の設計を崩さずに進める機能改善ロードマップ |
-| [手法調査と実装計画](MethodResearch.md) | 改修者、データサイエンティスト | 新しい手法の効果、実装場所、検証方法を具体化 |
-| [実装リスク対策](RiskControlPlan.md) | 改修者、Codex 利用者 | 新手法を小さく実装するための最小ルール |
-| [実データ評価 smoke](RealDataEvaluation.md) | 改修者 | 実データに近い dataset で metric 退行を確認する開発者向け手順 |
+| 用途 | workflow | 主な出力 | 効果 |
+| --- | --- | --- | --- |
+| 1 case の特徴量化 | `transform` | `features/`, `feature_summary.json` | 形状を SDF、material field、profile などへ変換する |
+| 複数 case の特徴量化 | `batch-transform` | `dataset_index.csv`, `features_summary.csv` | 学習や解析に使う feature dataset をまとめて作る |
+| 特徴量候補の評価 | `transform-eval` | `candidate_eval_summary.csv`, `case_variation_summary.csv` | どの特徴量が入力差分を表現できているか比較する |
+| 1 pair の形状比較 | `compare` | `objective.json`, `metrics.csv`, `difference.png` | simulation と target の差を数値化する |
+| 複数 pair の比較 | `batch-compare` | `objectives.csv`, `ranking.csv` | 複数 case を target に近い順に並べる |
+| metric set の評価 | `compare-eval` | `candidate_summary.csv`, `case_scores.csv` | どの metric set が比較目的に合うか検討する |
 
-## 正式な利用導線
+## 基本方針
 
-現在の通常ユーザー向けの正式入口は次の 3 つです。
+- ユーザーが編集するのは YAML と、batch/eval 用の index CSV だけです。
+- 通常 YAML は `task / input / view / features / metrics / output` を基本にします。
+- 加工差分を使うときだけ `process.enabled: true` と `input.reference` を使います。
+- eval workflow だけ `eval.candidates` を使えます。
+- 出力の正は CSV/JSON/NPZ です。PNG は補助確認用だけです。
 
-```powershell
-python -m wafergeo run transform --config .\configs\examples\transform.simple.yaml
-python -m wafergeo run compare --config .\configs\examples\compare.simple.yaml
-python -m wafergeo run batch-compare --config .\configs\examples\batch-compare.simple.yaml
-```
+## 読む順番
 
-| workflow | 目的 | 主な出力 |
-| --- | --- | --- |
-| `transform` | 1 つの simulation 入力を特徴量化する | `features/`, `summary.json` |
-| `compare` | 1 つの simulation と 1 つの target を比較する | `score.json`, `metrics.csv`, `difference.png` |
-| `batch-compare` | 複数 case を比較し、順位付けする | `ranking.csv`, `metric_summary.csv`, `ranking_top.png` |
-
-`manifest`, `report`, `surrogate`, `assimilation`, `benchmark`, `preview`, `audit`
-は通常の利用導線には含めません。必要な出力は YAML と `outputs/` だけで追える設計にしています。
-
-今後は、特徴量化と比較評価をそれぞれ「単一実行」「batch 実行」「手法評価」に分ける計画です。
-詳細は [特徴量化・評価ロードマップ](WorkflowRoadmap.md) を参照してください。
-
-## 処理内容を理解する資料
-
-| 資料 | 内容 |
+| 目的 | 読むページ |
 | --- | --- |
-| [入力 label volume](1_IngestLabel.md) | `npz_label` / `vti_label` の形、軸順、単位 |
-| [View と 2D 投影](View.md) | 3D データを比較用の 2D 面に変換する考え方 |
-| [SDF](2_sdf.md) | SDF 特徴量と SDF 系 metric の役割 |
-| [Mesh](3_mesh.md) | mesh 特徴量の位置づけ |
-| [Scoring](Scoring.md) | Primary / Diagnostic metric の意味と使い分け |
+| すぐ動かしたい | [Quickstart](Quickstart.md) |
+| YAML と出力を理解したい | [User Manual](UserManual.md) |
+| 2D view の意味を確認したい | [View](View.md) |
+| metric の使い分けを確認したい | [Scoring](Scoring.md) |
+| コードを改修したい | [Developer Manual](DeveloperManual.md) |
+| loader / feature / metric を追加したい | [Extension Guide](ExtensionGuide.md) |
+| 今後の設計方針を確認したい | [Workflow Roadmap](WorkflowRoadmap.md) |
 
-## Codex に作業を依頼するとき
+## 全体 workflow
 
-Codex などの coding agent に作業を依頼するときは、root の `AGENTS.md` と
-[保守運用ポリシー](MaintenancePolicy.md) を前提にしてください。
-
-広い依頼ほど、不要な workflow、深い YAML、過度な互換処理、重いテストが増えやすくなります。
-依頼時は「変更対象を loader / feature / metric / output / docs / tests のどれに限定するか」を
-明示すると、現在の設計を崩さずに改良しやすくなります。
-
-## MkDocs で見る
-
-ローカルでドキュメントを確認する場合は、開発用依存を入れてから MkDocs を起動します。
-
-```powershell
-py -3.13 -m pip install -e ".[dev]"
-py -3.13 -m mkdocs serve
+```mermaid
+flowchart LR
+  A[simulation / measurement-derived shape] --> B{workflow}
+  B -->|transform| C[features]
+  B -->|batch-transform| D[feature dataset]
+  B -->|transform-eval| E[feature candidate tables]
+  A --> F[simulation]
+  G[target contour or label volume] --> H{compare workflow}
+  F --> H
+  H -->|compare| I[objective and metrics]
+  H -->|batch-compare| J[ranking]
+  H -->|compare-eval| K[metric-set evaluation]
+  C --> L[external analysis / surrogate learning]
+  D --> L
+  I --> M[external optimizer / sampler]
+  J --> M
+  K --> M
 ```
 
-静的サイトとして確認する場合は次を実行します。
-
-```powershell
-py -3.13 -m mkdocs build --strict
-```
-
-`site/` は生成物なので Git 管理には含めません。
+MkDocs の標準テーマでは Mermaid はコードブロックとして表示されます。
+Mermaid 対応の theme / plugin を使う場合は図として表示できます。

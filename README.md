@@ -6,8 +6,11 @@ features with contour or label-volume target data.
 The public workflow is intentionally small:
 
 - `transform`: build features from one simulation label volume.
+- `batch-transform`: build features from multiple simulation label volumes.
+- `transform-eval`: compare feature-transform candidates on the same inputs.
 - `compare`: compare one simulation label volume with one target.
 - `batch-compare`: compare multiple simulation-target pairs and write a ranking.
+- `compare-eval`: compare metric-set candidates on the same pairs.
 
 Downstream tools should consume the files written by this package instead of
 being built into the public workflow.
@@ -32,8 +35,11 @@ python -m pip install -e ".[scipy,vtk,viz,dev]"
 
 ```powershell
 python -m wafergeo run transform --config .\configs\examples\transform.simple.yaml
+python -m wafergeo run batch-transform --config .\configs\examples\batch-transform.simple.yaml
+python -m wafergeo run transform-eval --config .\configs\examples\transform-eval.simple.yaml
 python -m wafergeo run compare --config .\configs\examples\compare.simple.yaml
 python -m wafergeo run batch-compare --config .\configs\examples\batch-compare.simple.yaml
+python -m wafergeo run compare-eval --config .\configs\examples\compare-eval.simple.yaml
 ```
 
 Users edit YAML files and read files under `outputs/`.
@@ -141,6 +147,7 @@ diagnostic additions rather than the first metric set to try.
 `compare` writes:
 
 ```text
+objective.json
 score.json
 metrics.csv
 metric_details.json
@@ -160,6 +167,7 @@ _run/
 `batch-compare` also writes:
 
 ```text
+objectives.csv
 ranking.csv
 ranking_top.png
 metric_summary.csv
@@ -181,15 +189,32 @@ loss, per-material loss, and projected material-boundary loss.
 `ranking_top.png` are lightweight derived outputs for quick inspection. CSV/JSON
 files remain the authoritative data.
 
+`compare-eval` writes:
+
+```text
+candidate_summary.csv
+case_scores.csv
+metric_summary.csv
+ranking_consistency.csv
+summary.json
+```
+
+Use it to choose a metric/loss set. It reuses existing compare behavior and
+does not introduce new metrics or features. It keeps candidate case details in
+the root CSV files instead of writing per-case images or feature directories.
+`candidate_summary.csv` and `case_scores.csv` expose `objective`,
+`objective_name`, `direction`, and `status` so downstream tools can compare
+candidate loss sets without parsing nested score files.
+
 `_run/` contains `used_config.yaml` and `run_info.json` for debugging. It is not
 an input contract and can be deleted when not needed.
 
 ## Development
 
 Before asking Codex or another coding agent to change the repository, read
-`AGENTS.md` and `docs/MaintenancePolicy.md`. The project should stay focused on
-the three public workflows and avoid reintroducing removed user-facing concepts
-such as manifest, report, surrogate, assimilation, benchmark, preview, or audit.
+`AGENTS.md` and `docs/WorkflowRoadmap.md`. The project should stay focused on
+the public workflows and avoid expanding YAML, runners, or output files without
+a clear user workflow.
 
 Keep public concepts simple:
 

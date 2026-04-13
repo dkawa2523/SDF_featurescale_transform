@@ -11,7 +11,21 @@ FeatureName = str
 MetricName = str
 AxisName = Literal["x", "y", "z"]
 
-FEATURE_NAMES = {"sdf", "sdf_raw", "tsdf_views", "udf", "sdf3d", "mesh", "contour", "slice"}
+FEATURE_NAMES = {
+    "sdf",
+    "sdf_raw",
+    "tsdf_views",
+    "udf",
+    "material_sdf",
+    "material_profile",
+    "process_delta_profile",
+    "process_delta_sdf",
+    "sdf3d",
+    "mesh",
+    "contour",
+    "slice",
+}
+PROCESS_FEATURE_NAMES = {"process_delta_profile", "process_delta_sdf"}
 METRIC_NAMES = public_metric_names()
 AXIS_NAMES = {"x", "y", "z"}
 
@@ -135,12 +149,67 @@ class OutputSpec:
 
 
 @dataclass(frozen=True)
+class ProcessSpec:
+    enabled: bool = False
+
+
+@dataclass(frozen=True)
 class TransformSpec:
     task: Literal["transform"]
     simulation: SimulationInputSpec
     view: ViewSpec
     features: FeatureSpec
     output: OutputSpec
+    reference: SimulationInputSpec | None = None
+    process: ProcessSpec = field(default_factory=ProcessSpec)
+
+    def __post_init__(self) -> None:
+        uses_process_feature = bool(set(self.features.use).intersection(PROCESS_FEATURE_NAMES))
+        if self.process.enabled and self.reference is None:
+            raise ValueError("process.enabled requires input.reference")
+        if uses_process_feature and not self.process.enabled:
+            raise ValueError("process features require process.enabled: true")
+        if uses_process_feature and self.reference is None:
+            raise ValueError("process features require input.reference")
+
+
+@dataclass(frozen=True)
+class BatchTransformSpec:
+    task: Literal["batch-transform"]
+    index: str
+    view: ViewSpec
+    features: FeatureSpec
+    output: OutputSpec
+    process: ProcessSpec = field(default_factory=ProcessSpec)
+
+    def __post_init__(self) -> None:
+        if not self.index:
+            raise ValueError("input.index must be non-empty")
+        uses_process_feature = bool(set(self.features.use).intersection(PROCESS_FEATURE_NAMES))
+        if uses_process_feature and not self.process.enabled:
+            raise ValueError("process features require process.enabled: true")
+
+
+@dataclass(frozen=True)
+class TransformEvalSpec:
+    task: Literal["transform-eval"]
+    index: str
+    view: ViewSpec
+    candidates: dict[str, FeatureSpec]
+    output: OutputSpec
+    process: ProcessSpec = field(default_factory=ProcessSpec)
+
+    def __post_init__(self) -> None:
+        if not self.index:
+            raise ValueError("input.index must be non-empty")
+        if not self.candidates:
+            raise ValueError("eval.candidates must be non-empty")
+        uses_process_feature = any(
+            set(features.use).intersection(PROCESS_FEATURE_NAMES)
+            for features in self.candidates.values()
+        )
+        if uses_process_feature and not self.process.enabled:
+            raise ValueError("process features require process.enabled: true")
 
 
 @dataclass(frozen=True)
@@ -166,3 +235,24 @@ class BatchCompareSpec:
     def __post_init__(self) -> None:
         if not self.index:
             raise ValueError("input.index must be non-empty")
+
+
+@dataclass(frozen=True)
+class CompareEvalCandidateSpec:
+    features: FeatureSpec
+    metrics: MetricSpec
+
+
+@dataclass(frozen=True)
+class CompareEvalSpec:
+    task: Literal["compare-eval"]
+    index: str
+    view: ViewSpec
+    candidates: dict[str, CompareEvalCandidateSpec]
+    output: OutputSpec
+
+    def __post_init__(self) -> None:
+        if not self.index:
+            raise ValueError("input.index must be non-empty")
+        if not self.candidates:
+            raise ValueError("eval.candidates must be non-empty")

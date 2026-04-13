@@ -15,7 +15,12 @@ from wafergeo.compare import (
     load_simulation_label,
 )
 from wafergeo.compare.features import extract_view_feature
-from wafergeo.compare.schema import load_batch_compare_spec_yaml, load_compare_spec_yaml
+from wafergeo.compare.schema import (
+    load_batch_compare_spec_yaml,
+    load_compare_eval_spec_yaml,
+    load_compare_spec_yaml,
+    load_transform_spec_yaml,
+)
 
 
 def test_npz_label_loader_converts_xyz_to_internal_zyx(tmp_path: Path) -> None:
@@ -305,6 +310,28 @@ output:
     with pytest.raises(ValueError, match="compare does not support"):
         load_compare_spec_yaml(udf_config)
 
+    material_sdf_config = tmp_path / "compare_material_sdf.yaml"
+    material_sdf_config.write_text(
+        """
+task: compare
+input:
+  simulation:
+    kind: npz_label
+    path: sim.npz
+  target:
+    kind: contour_json
+    path: target.json
+features:
+  use: [material_sdf]
+output:
+  dir: out
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="compare does not support"):
+        load_compare_spec_yaml(material_sdf_config)
+
 
 def test_compare_yaml_rejects_metric_without_required_feature(tmp_path: Path) -> None:
     compare_config = tmp_path / "compare_missing_contour.yaml"
@@ -397,6 +424,86 @@ output:
 
     with pytest.raises(ValueError, match="feature 'contour' is required"):
         load_compare_spec_yaml(compare_missing_corner)
+
+
+def test_compare_eval_yaml_accepts_candidates_and_validates_dependencies(tmp_path: Path) -> None:
+    config = tmp_path / "compare_eval.yaml"
+    config.write_text(
+        f"""
+task: compare-eval
+input:
+  index: {tmp_path / "pairs.csv"}
+view:
+  axes: [x, z]
+  depth_axis: y
+eval:
+  candidates:
+    primary:
+      features:
+        use: [sdf, contour]
+      metrics:
+        use: [cd, sdf, iou]
+    material:
+      features:
+        use: [sdf, contour]
+      metrics:
+        use: [cd, sdf, iou, sdf_material]
+output:
+  dir: {tmp_path / "out"}
+""",
+        encoding="utf-8",
+    )
+
+    spec = load_compare_eval_spec_yaml(config)
+
+    assert spec.task == "compare-eval"
+    assert tuple(spec.candidates) == ("primary", "material")
+    assert spec.candidates["primary"].metrics.use == ("cd", "sdf", "iou")
+    assert spec.candidates["material"].metrics.use == ("cd", "sdf", "iou", "sdf_material")
+
+    missing_feature = tmp_path / "compare_eval_missing_feature.yaml"
+    missing_feature.write_text(
+        f"""
+task: compare-eval
+input:
+  index: {tmp_path / "pairs.csv"}
+eval:
+  candidates:
+    bad:
+      features:
+        use: [sdf]
+      metrics:
+        use: [cd]
+output:
+  dir: {tmp_path / "out"}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="feature 'contour' is required"):
+        load_compare_eval_spec_yaml(missing_feature)
+
+    transform_feature = tmp_path / "compare_eval_transform_feature.yaml"
+    transform_feature.write_text(
+        f"""
+task: compare-eval
+input:
+  index: {tmp_path / "pairs.csv"}
+eval:
+  candidates:
+    bad:
+      features:
+        use: [sdf_raw]
+      metrics:
+        use: [sdf]
+output:
+  dir: {tmp_path / "out"}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="compare-eval does not support"):
+        load_compare_eval_spec_yaml(transform_feature)
 
 
 def test_compare_yaml_defaults_to_primary_metrics(tmp_path: Path) -> None:
@@ -513,3 +620,75 @@ output:
 
     with pytest.raises(ValueError, match="height_axis must be included"):
         load_compare_spec_yaml(mismatch)
+
+
+def test_transform_process_requires_reference(tmp_path: Path) -> None:
+    missing_reference = tmp_path / "transform_process_missing_reference.yaml"
+    missing_reference.write_text(
+        f"""
+task: transform
+input:
+  simulation:
+    kind: npz_label
+    path: {tmp_path / "final.npz"}
+process:
+  enabled: true
+features:
+  use: [sdf_raw]
+output:
+  dir: {tmp_path / "out"}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="process.enabled requires input.reference"):
+        load_transform_spec_yaml(missing_reference)
+
+    with_reference = tmp_path / "transform_process_reference.yaml"
+    with_reference.write_text(
+        f"""
+task: transform
+input:
+  reference:
+    kind: npz_label
+    path: {tmp_path / "initial.npz"}
+  simulation:
+    kind: npz_label
+    path: {tmp_path / "final.npz"}
+process:
+  enabled: true
+features:
+  use: [sdf_raw]
+output:
+  dir: {tmp_path / "out"}
+""",
+        encoding="utf-8",
+    )
+
+    spec = load_transform_spec_yaml(with_reference)
+
+    assert spec.process.enabled is True
+    assert spec.reference is not None
+    assert spec.reference.kind == "npz_label"
+    assert spec.reference.path == str(tmp_path / "initial.npz")
+
+
+def test_transform_process_feature_requires_process_mode(tmp_path: Path) -> None:
+    config = tmp_path / "transform_process_feature_without_mode.yaml"
+    config.write_text(
+        f"""
+task: transform
+input:
+  simulation:
+    kind: npz_label
+    path: {tmp_path / "final.npz"}
+features:
+  use: [process_delta_profile]
+output:
+  dir: {tmp_path / "out"}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="process features require process.enabled"):
+        load_transform_spec_yaml(config)

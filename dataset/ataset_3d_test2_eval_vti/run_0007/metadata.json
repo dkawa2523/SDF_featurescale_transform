@@ -1,0 +1,78 @@
+{
+  "schema_version": "wafergeo/eval-vti/v1",
+  "source_vti": "dataset/ataset_3d_test2/run_0007/vox_t08.vti",
+  "npz_label_contract": {
+    "labels_shape_order": "[X,Y,Z]",
+    "spacing_order": "[X,Y,Z]",
+    "origin_order": "[X,Y,Z]",
+    "void_id": 2
+  },
+  "source_to_eval_material_rules": {
+    "source_id_0": "preserved as mask material -> 0",
+    "source_ids_2_11": "no-material/void -> 2",
+    "source_ids_7_8_10": "same material -> 10",
+    "source_ids_5_6_9": "preserved as process/material labels"
+  },
+  "source_id_counts": {
+    "0": 243107,
+    "2": 482145,
+    "5": 5,
+    "6": 1,
+    "7": 2250,
+    "8": 137,
+    "9": 8,
+    "10": 1945240,
+    "11": 12581
+  },
+  "eval_id_counts": {
+    "0": 243107,
+    "2": 494726,
+    "5": 5,
+    "6": 1,
+    "9": 8,
+    "10": 1947627
+  },
+  "material_ids": [
+    0,
+    2,
+    5,
+    6,
+    9,
+    10
+  ],
+  "material_names": {
+    "0": "mask_material",
+    "2": "void_no_material",
+    "5": "process_material_5",
+    "6": "process_material_6",
+    "9": "process_material_9",
+    "10": "main_material"
+  },
+  "spacing_xyz_nm": [
+    2.0,
+    2.0,
+    2.0
+  ],
+  "origin_xyz_nm": [
+    -98.0,
+    -98.0,
+    -398.0
+  ],
+  "source_shape_zyx": [
+    274,
+    99,
+    99
+  ],
+  "labels_shape_xyz": [
+    99,
+    99,
+    274
+  ],
+  "source_npz": "dataset/ataset_3d_test2_eval_npz/run_0007/vox_t08.npz",
+  "vti_contract": {
+    "label_array": "CellData/MaterialIds",
+    "cell_data_shape_order_after_loader": "[Z,Y,X]",
+    "void_id": 2,
+    "note": "VTI readers may not preserve VoidId FieldData. Pass void_id: 2 in YAML when needed."
+  }
+}

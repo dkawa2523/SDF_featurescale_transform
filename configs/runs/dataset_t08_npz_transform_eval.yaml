@@ -1,0 +1,38 @@
+task: transform-eval
+
+input:
+  index: dataset_t08_npz_transform_eval_cases.csv
+
+view:
+  axes: [x, z]
+  depth_axis: y
+
+process:
+  enabled: true
+
+eval:
+  candidates:
+    shape_sdf:
+      features:
+        use: [sdf_raw]
+    clipped_sdf:
+      features:
+        use: [tsdf_views]
+    boundary_distance:
+      features:
+        use: [udf]
+    material_summary:
+      features:
+        use: [material_profile]
+    material_field:
+      features:
+        use: [material_sdf]
+    process_delta_field:
+      features:
+        use: [process_delta_sdf]
+    process_delta_summary:
+      features:
+        use: [process_delta_profile]
+
+output:
+  dir: ../../outputs/realdata_dataset_t08_npz_transform_eval

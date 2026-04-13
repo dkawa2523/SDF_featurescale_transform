@@ -28,6 +28,7 @@ from wafergeo.compare.schema import (
     TargetInputSpec,
     load_batch_compare_spec_yaml,
 )
+from wafergeo.compare.scoring import objective_csv_row
 
 
 def _safe_case_id(value: str, *, row_number: int) -> str:
@@ -67,6 +68,10 @@ def _read_batch_index(index_path: Path) -> list[dict[str, str]]:
     return rows
 
 
+def read_compare_index(index_path: Path) -> list[dict[str, str]]:
+    return _read_batch_index(index_path)
+
+
 def _compare_spec_from_batch_row(
     row: dict[str, str],
     *,
@@ -98,6 +103,15 @@ def _compare_spec_from_batch_row(
             ranking=batch_spec.output.ranking,
         ),
     )
+
+
+def compare_spec_from_index_row(
+    row: dict[str, str],
+    *,
+    batch_spec: BatchCompareSpec,
+    output_dir: Path,
+) -> CompareSpec:
+    return _compare_spec_from_batch_row(row, batch_spec=batch_spec, output_dir=output_dir)
 
 
 def _write_batch_ranking(output_dir: Path, ranking_rows: list[dict[str, str | float]]) -> None:
@@ -156,6 +170,25 @@ def _write_batch_difference_summary(
             writer.writerow({key: difference_row.get(key, "") for key in fieldnames})
 
 
+def _write_batch_objectives(output_dir: Path, objective_rows: list[dict[str, object]]) -> None:
+    with (output_dir / "objectives.csv").open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "case_id",
+                "status",
+                "objective",
+                "objective_name",
+                "direction",
+                "total_score",
+                "skipped_metrics",
+            ],
+        )
+        writer.writeheader()
+        for row in objective_rows:
+            writer.writerow(row)
+
+
 def _metric_scales(metric_names: tuple[str, ...]) -> dict[str, float]:
     return {name: float(METRIC_DEFINITIONS[name].loss_scale) for name in metric_names}
 
@@ -180,6 +213,7 @@ def run_batch_compare_from_config(config_path: str | Path) -> dict[str, object]:
     per_material_rows: list[dict[str, object]] = []
     material_confusion_rows: list[dict[str, object]] = []
     ranking_rows: list[dict[str, str | float]] = []
+    objective_rows: list[dict[str, object]] = []
     difference_rows: list[dict[str, object]] = []
     target_cache: dict[tuple[object, ...], PreparedTarget] = {}
     target_cache_paths: dict[tuple[object, ...], str] = {}
@@ -251,6 +285,7 @@ def run_batch_compare_from_config(config_path: str | Path) -> dict[str, object]:
             prepared_target=prepared_target,
             write_target_features=prepared_target is None,
         )
+        objective_rows.append(objective_csv_row(case_id, score))
         for metric in score.metrics:
             metric_rows.append({"case_id": case_id, **metric.to_dict()})
         for detail in score.metric_details:
@@ -288,6 +323,7 @@ def run_batch_compare_from_config(config_path: str | Path) -> dict[str, object]:
     if spec.output.ranking:
         _write_batch_ranking(out_dir, ranking_rows)
         write_ranking_top_png(out_dir / "ranking_top.png", ranking_rows)
+    _write_batch_objectives(out_dir, objective_rows)
     _write_batch_metrics(out_dir, metric_rows)
     write_metric_summary_csv(out_dir / "metric_summary.csv", metric_rows)
     if per_material_rows:

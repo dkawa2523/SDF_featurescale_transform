@@ -4,33 +4,22 @@ docs_dir: docs
 use_directory_urls: true
 
 nav:
-  - ホーム: index.md
-  - ユーザー向け:
-      - ユーザーマニュアル: UserManual.md
-      - クイックスタート: Quickstart.md
-      - 設定の所在マップ: SettingsMap.md
-  - 処理内容:
-      - 入力 label volume: 1_IngestLabel.md
-      - View と 2D 投影: View.md
-      - SDF: 2_sdf.md
-      - Mesh: 3_mesh.md
-      - Scoring: Scoring.md
-  - 開発者向け:
-      - 開発者マニュアル: DeveloperManual.md
-      - 拡張ガイド: ExtensionGuide.md
-      - 特徴量化・評価ロードマップ: WorkflowRoadmap.md
-      - 保守運用ポリシー: MaintenancePolicy.md
-      - 改良計画: ImprovementPlan.md
-      - 手法調査と実装計画: MethodResearch.md
-      - 実装リスク対策: RiskControlPlan.md
-      - 実データ評価 smoke: RealDataEvaluation.md
-      - SDF 拡張メモ: 2-1_sdf_extend.md
+  - Home: index.md
+  - Quickstart: Quickstart.md
+  - User Manual: UserManual.md
+  - View: View.md
+  - Scoring: Scoring.md
+  - Eval Visualization: EvalVisualization.md
+  - Developer Manual: DeveloperManual.md
+  - Extension Guide: ExtensionGuide.md
+  - Workflow Roadmap: WorkflowRoadmap.md
 
 theme:
   name: mkdocs
 
 markdown_extensions:
   - admonition
+  - fenced_code
   - tables
   - toc:
       permalink: true

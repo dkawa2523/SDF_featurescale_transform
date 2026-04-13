@@ -1,0 +1,14 @@
+task: batch-transform
+
+input:
+  index: ../../data/examples/transform_cases.csv
+
+view:
+  axes: [x, z]
+  depth_axis: y
+
+features:
+  use: [sdf_raw, tsdf_views, udf, material_profile]
+
+output:
+  dir: ../../outputs/example_batch_transform

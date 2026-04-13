@@ -1,0 +1,47 @@
+{
+  "schema_version": "wafergeo/eval-npz/v1",
+  "source_vti": "dataset/ataset_3d_test2/run_0009/vox_t00_init.vti",
+  "npz_path": "dataset/ataset_3d_test2_eval_npz/run_0009/vox_t00_init.npz",
+  "void_id": 2,
+  "source_to_eval_material_rules": {
+    "source_id_0": "preserved as mask material -> 0",
+    "source_ids_2_11": "no-material/void -> 2",
+    "source_ids_7_8_10": "same material -> 10",
+    "source_ids_5_6_9": "preserved as process/material labels"
+  },
+  "source_id_counts": {
+    "0": 243113,
+    "2": 482145,
+    "7": 2314,
+    "8": 129,
+    "9": 13,
+    "10": 1957760
+  },
+  "eval_id_counts": {
+    "0": 243113,
+    "2": 482145,
+    "9": 13,
+    "10": 1960203
+  },
+  "material_ids": [
+    0,
+    2,
+    9,
+    10
+  ],
+  "spacing_xyz_nm": [
+    2.0,
+    2.0,
+    2.0
+  ],
+  "origin_xyz_nm": [
+    -98.0,
+    -98.0,
+    -398.0
+  ],
+  "labels_shape_xyz": [
+    99,
+    99,
+    274
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "schema_version": "wafergeo/eval-vti-dataset/v1",
+  "source_npz_dataset": "dataset/ataset_3d_test2_eval_npz",
+  "case_count": 11,
+  "void_id": 2,
+  "cases": [
+    {
+      "case_id": "run_0000",
+      "vti_path": "dataset/ataset_3d_test2_eval_vti/run_0000/vox_t08.vti",
+      "source_npz_path": "dataset/ataset_3d_test2_eval_npz/run_0000/vox_t08.npz"
+    },
+    {
+      "case_id": "run_0001",
+      "vti_path": "dataset/ataset_3d_test2_eval_vti/run_0001/vox_t08.vti",
+      "source_npz_path": "dataset/ataset_3d_test2_eval_npz/run_0001/vox_t08.npz"
+    },
+    {
+      "case_id": "run_0002",
+      "vti_path": "dataset/ataset_3d_test2_eval_vti/run_0002/vox_t08.vti",
+      "source_npz_path": "dataset/ataset_3d_test2_eval_npz/run_0002/vox_t08.npz"
+    },
+    {
+      "case_id": "run_0003",
+      "vti_path": "dataset/ataset_3d_test2_eval_vti/run_0003/vox_t08.vti",
+      "source_npz_path": "dataset/ataset_3d_test2_eval_npz/run_0003/vox_t08.npz"
+    },
+    {
+      "case_id": "run_0004",
+      "vti_path": "dataset/ataset_3d_test2_eval_vti/run_0004/vox_t08.vti",
+      "source_npz_path": "dataset/ataset_3d_test2_eval_npz/run_0004/vox_t08.npz"
+    },
+    {
+      "case_id": "run_0005",
+      "vti_path": "dataset/ataset_3d_test2_eval_vti/run_0005/vox_t08.vti",
+      "source_npz_path": "dataset/ataset_3d_test2_eval_npz/run_0005/vox_t08.npz"
+    },
+    {
+      "case_id": "run_0006",
+      "vti_path": "dataset/ataset_3d_test2_eval_vti/run_0006/vox_t08.vti",
+      "source_npz_path": "dataset/ataset_3d_test2_eval_npz/run_0006/vox_t08.npz"
+    },
+    {
+      "case_id": "run_0007",
+      "vti_path": "dataset/ataset_3d_test2_eval_vti/run_0007/vox_t08.vti",
+      "source_npz_path": "dataset/ataset_3d_test2_eval_npz/run_0007/vox_t08.npz"
+    },
+    {
+      "case_id": "run_0008",
+      "vti_path": "dataset/ataset_3d_test2_eval_vti/run_0008/vox_t08.vti",
+      "source_npz_path": "dataset/ataset_3d_test2_eval_npz/run_0008/vox_t08.npz"
+    },
+    {
+      "case_id": "run_0009",
+      "vti_path": "dataset/ataset_3d_test2_eval_vti/run_0009/vox_t08.vti",
+      "source_npz_path": "dataset/ataset_3d_test2_eval_npz/run_0009/vox_t08.npz"
+    },
+    {
+      "case_id": "run_0010",
+      "vti_path": "dataset/ataset_3d_test2_eval_vti/run_0010/vox_t08.vti",
+      "source_npz_path": "dataset/ataset_3d_test2_eval_npz/run_0010/vox_t08.npz"
+    }
+  ]
+}

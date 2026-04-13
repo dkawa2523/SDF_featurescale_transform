@@ -1,0 +1,152 @@
+{
+  "schema_version": "wafergeo/eval-dataset/v1",
+  "source_dataset": "dataset/ataset_3d_test2",
+  "case_count": 11,
+  "cases": [
+    {
+      "case_id": "run_0000",
+      "metadata": "run_0000/metadata.json",
+      "counts": {
+        "0": 243107,
+        "2": 493960,
+        "5": 5,
+        "6": 1,
+        "9": 8,
+        "10": 1948393
+      }
+    },
+    {
+      "case_id": "run_0001",
+      "metadata": "run_0001/metadata.json",
+      "counts": {
+        "0": 243107,
+        "2": 496356,
+        "5": 5,
+        "6": 1,
+        "9": 16,
+        "10": 1945989
+      }
+    },
+    {
+      "case_id": "run_0002",
+      "metadata": "run_0002/metadata.json",
+      "counts": {
+        "0": 243107,
+        "2": 494838,
+        "5": 5,
+        "6": 1,
+        "9": 11,
+        "10": 1947512
+      }
+    },
+    {
+      "case_id": "run_0003",
+      "metadata": "run_0003/metadata.json",
+      "counts": {
+        "0": 243107,
+        "2": 493327,
+        "5": 5,
+        "6": 1,
+        "9": 7,
+        "10": 1949027
+      }
+    },
+    {
+      "case_id": "run_0004",
+      "metadata": "run_0004/metadata.json",
+      "counts": {
+        "0": 243107,
+        "2": 494332,
+        "5": 5,
+        "6": 1,
+        "9": 11,
+        "10": 1948018
+      }
+    },
+    {
+      "case_id": "run_0005",
+      "metadata": "run_0005/metadata.json",
+      "counts": {
+        "0": 243107,
+        "2": 492915,
+        "5": 5,
+        "6": 1,
+        "9": 8,
+        "10": 1949438
+      }
+    },
+    {
+      "case_id": "run_0006",
+      "metadata": "run_0006/metadata.json",
+      "counts": {
+        "0": 243107,
+        "2": 496189,
+        "5": 5,
+        "6": 1,
+        "9": 18,
+        "10": 1946154
+      }
+    },
+    {
+      "case_id": "run_0007",
+      "metadata": "run_0007/metadata.json",
+      "counts": {
+        "0": 243107,
+        "2": 494726,
+        "5": 5,
+        "6": 1,
+        "9": 8,
+        "10": 1947627
+      }
+    },
+    {
+      "case_id": "run_0008",
+      "metadata": "run_0008/metadata.json",
+      "counts": {
+        "0": 243107,
+        "2": 497356,
+        "5": 5,
+        "6": 1,
+        "9": 17,
+        "10": 1944988
+      }
+    },
+    {
+      "case_id": "run_0009",
+      "metadata": "run_0009/metadata.json",
+      "counts": {
+        "0": 243107,
+        "2": 497148,
+        "5": 5,
+        "6": 1,
+        "9": 17,
+        "10": 1945196
+      }
+    },
+    {
+      "case_id": "run_0010",
+      "metadata": "run_0010/metadata.json",
+      "counts": {
+        "0": 243107,
+        "2": 496211,
+        "5": 5,
+        "6": 1,
+        "9": 17,
+        "10": 1946133
+      }
+    }
+  ],
+  "material_rule_summary": {
+    "void_id": 2,
+    "void_source_ids": [
+      2,
+      11
+    ],
+    "preserved_mask_material_id": 0,
+    "merged_main_material_source_ids": [
+      7,
+      8,
+      10
+    ]
+  }
+}
