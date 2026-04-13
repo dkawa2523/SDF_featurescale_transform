@@ -8,7 +8,7 @@ view:
   depth_axis: y
 
 features:
-  use: [sdf_raw, tsdf_views, udf, material_profile]
+  use: [sdf_raw, tsdf_views, udf, material_sdf]
 
 output:
   dir: ../../outputs/example_batch_transform

@@ -17,7 +17,7 @@ dependencies = [
 scipy = ["scipy>=1.11"]
 itk = ["itk>=5.3"]
 cuda = ["cupy-cuda12x>=12.0"]
-vtk = ["vtk>=9.2", "pyvista>=0.42"]
+vtk = ["vtk>=9.2"]
 viz = ["matplotlib>=3.8"]
 dev = [
   "pytest>=8.0",

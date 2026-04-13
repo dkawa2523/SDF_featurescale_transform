@@ -14,10 +14,12 @@ from wafergeo.compare.batch_transform_runner import (
     read_transform_index,
     transform_spec_from_index_row,
 )
-from wafergeo.compare.eval_figures import write_transform_eval_figures
+from wafergeo.compare.feature_taxonomy import classify_feature
 from wafergeo.compare.runner import run_transform_spec
 from wafergeo.compare.runtime_io import resolve_path, write_json, write_run_info
 from wafergeo.compare.schema import load_transform_eval_spec_yaml
+from wafergeo.compare.schema_types import FeatureSpec
+from wafergeo.compare.transform_eval_figures import write_transform_eval_figures
 
 EVAL_ARRAY_NAMES = {
     "sdf_nm",
@@ -35,13 +37,26 @@ EVAL_ARRAY_NAMES = {
     "etched_mask",
     "deposited_mask",
     "material_changed_mask",
+    "interface_distance_nm",
+    "nearest_material_id",
+    "second_material_id",
+    "pair_code",
+    "distance_gap_nm",
+    "interface_band_10nm",
+    "interface_band_30nm",
+    "interface_band_100nm",
+    "transition_code",
+    "transition_distance_nm",
+    "transition_band_10nm",
+    "transition_band_30nm",
+    "transition_band_100nm",
 }
 
 
-def _safe_candidate_id(value: str) -> str:
+def _safe_execution_id(value: str) -> str:
     safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip()).strip("._-")
     if not safe or safe in {".", ".."}:
-        raise ValueError(f"invalid transform-eval candidate name: {value!r}")
+        raise ValueError(f"invalid transform-eval feature label: {value!r}")
     return safe
 
 
@@ -62,10 +77,17 @@ def _write_csv(path: Path, rows: list[dict[str, object]], fieldnames: list[str])
 
 
 def _clean_eval_output_dirs(out_dir: Path) -> None:
-    for name in ("candidates", "figures"):
+    for name in ("eval_features", "figures"):
         path = out_dir / name
         if path.exists():
             shutil.rmtree(path)
+    for name in (
+        "feature_profile_values.csv",
+        "profile_variation_summary.csv",
+    ):
+        path = out_dir / name
+        if path.exists():
+            path.unlink()
 
 
 def _array_stats(array: np.ndarray) -> dict[str, object]:
@@ -103,13 +125,14 @@ def _feature_summary_items(summary_path: Path) -> list[dict[str, object]]:
 
 def _feature_stats_rows(
     *,
-    candidate: str,
+    execution_label: str,
     case_id: str,
     case_out: Path,
 ) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for feature in _feature_summary_items(case_out / "feature_summary.json"):
         feature_name = str(feature.get("name", ""))
+        taxonomy = classify_feature(feature_name)
         rel_path = str(feature.get("path", ""))
         feature_path = case_out / "features" / rel_path
         if feature_path.suffix != ".npz" or not feature_path.exists():
@@ -123,9 +146,11 @@ def _feature_stats_rows(
                     continue
                 rows.append(
                     {
-                        "candidate": candidate,
+                        "execution_label": execution_label,
+                        "target_shape": taxonomy.target_shape,
+                        "method": taxonomy.method,
+                        "code_name": feature_name,
                         "case_id": case_id,
-                        "feature": feature_name,
                         "array_name": array_name,
                         "path": rel_path,
                         "semantics": feature.get("semantics", ""),
@@ -138,12 +163,14 @@ def _feature_stats_rows(
 
 def _material_coverage_rows(
     *,
-    candidate: str,
+    execution_label: str,
     case_id: str,
     case_out: Path,
 ) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for feature in _feature_summary_items(case_out / "feature_summary.json"):
+        feature_name = str(feature.get("name", ""))
+        taxonomy = classify_feature(feature_name)
         rel_path = str(feature.get("path", ""))
         feature_path = case_out / "features" / rel_path
         if feature_path.suffix != ".npz" or not feature_path.exists():
@@ -157,9 +184,11 @@ def _material_coverage_rows(
         for material_id, voxel_count in zip(material_ids, voxel_counts, strict=True):
             rows.append(
                 {
-                    "candidate": candidate,
+                    "execution_label": execution_label,
+                    "target_shape": taxonomy.target_shape,
+                    "method": taxonomy.method,
+                    "code_name": feature_name,
                     "case_id": case_id,
-                    "feature": feature.get("name", ""),
                     "material_id": material_id,
                     "voxel_count": voxel_count,
                     "voxel_fraction": (float(voxel_count) / total) if total else 0.0,
@@ -170,13 +199,14 @@ def _material_coverage_rows(
 
 def _summary_scalar_rows(
     *,
-    candidate: str,
+    execution_label: str,
     case_id: str,
     case_out: Path,
 ) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for feature in _feature_summary_items(case_out / "feature_summary.json"):
         feature_name = str(feature.get("name", ""))
+        taxonomy = classify_feature(feature_name)
         outputs = feature.get("outputs", {})
         if not isinstance(outputs, dict):
             continue
@@ -194,92 +224,16 @@ def _summary_scalar_rows(
                 continue
             rows.append(
                 {
-                    "candidate": candidate,
+                    "execution_label": execution_label,
+                    "target_shape": taxonomy.target_shape,
+                    "method": taxonomy.method,
+                    "code_name": feature_name,
                     "case_id": case_id,
-                    "feature": feature_name,
                     "path": summary_rel,
                     "scalar": scalar,
                     "value": float(value),
                 }
             )
-    return rows
-
-
-def _try_float(value: object) -> float | None:
-    if value in ("", None):
-        return None
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int | float | str):
-        try:
-            return float(value)
-        except ValueError:
-            return None
-    return None
-
-
-def _profile_key(row: dict[str, str]) -> tuple[str, str] | None:
-    if row.get("transition_key"):
-        return "transition_key", row["transition_key"]
-    if row.get("material_id"):
-        return "material_id", row["material_id"]
-    return None
-
-
-def _profile_value_rows(
-    *,
-    candidate: str,
-    case_id: str,
-    case_out: Path,
-) -> list[dict[str, object]]:
-    skip_columns = {
-        "transition_key",
-        "change_type",
-        "material_id",
-        "material_name",
-        "is_void",
-        "initial_material_id",
-        "initial_material_name",
-        "final_material_id",
-        "final_material_name",
-    }
-    rows: list[dict[str, object]] = []
-    for feature in _feature_summary_items(case_out / "feature_summary.json"):
-        feature_name = str(feature.get("name", ""))
-        outputs = feature.get("outputs", {})
-        if not isinstance(outputs, dict):
-            continue
-        profile_rel = outputs.get("profile")
-        if not isinstance(profile_rel, str) or not profile_rel:
-            continue
-        profile_path = case_out / "features" / profile_rel
-        if not profile_path.exists():
-            continue
-        with profile_path.open("r", encoding="utf-8-sig", newline="") as f:
-            for row in csv.DictReader(f):
-                cleaned = {str(k): str(v or "").strip() for k, v in row.items() if k}
-                key = _profile_key(cleaned)
-                if key is None:
-                    continue
-                key_type, key_value = key
-                for scalar, raw_value in sorted(cleaned.items()):
-                    if scalar in skip_columns:
-                        continue
-                    value = _try_float(raw_value)
-                    if value is None:
-                        continue
-                    rows.append(
-                        {
-                            "candidate": candidate,
-                            "case_id": case_id,
-                            "feature": feature_name,
-                            "path": profile_rel,
-                            "key_type": key_type,
-                            "key": key_value,
-                            "scalar": scalar,
-                            "value": value,
-                        }
-                    )
     return rows
 
 
@@ -307,26 +261,29 @@ def _case_variation_rows(
 ) -> tuple[list[dict[str, object]], dict[str, int]]:
     groups: dict[tuple[str, str, str], list[dict[str, object]]] = {}
     for row in feature_rows:
-        key = (str(row["candidate"]), str(row["feature"]), str(row["array_name"]))
+        key = (str(row["execution_label"]), str(row["code_name"]), str(row["array_name"]))
         groups.setdefault(key, []).append(row)
 
     rows: list[dict[str, object]] = []
-    variable_array_count_by_candidate: dict[str, int] = {}
-    for (candidate, feature, array_name), items in sorted(groups.items()):
+    variable_array_count_by_execution_label: dict[str, int] = {}
+    for (execution_label, code_name, array_name), items in sorted(groups.items()):
+        taxonomy = classify_feature(code_name)
         hashes = {str(item.get("array_hash", "")) for item in items}
         unique_array_count = len(hashes)
         varies = unique_array_count > 1
         if varies:
-            variable_array_count_by_candidate[candidate] = (
-                variable_array_count_by_candidate.get(candidate, 0) + 1
+            variable_array_count_by_execution_label[execution_label] = (
+                variable_array_count_by_execution_label.get(execution_label, 0) + 1
             )
         means = _float_values(items, "mean")
         mins = _float_values(items, "min")
         maxs = _float_values(items, "max")
         rows.append(
             {
-                "candidate": candidate,
-                "feature": feature,
+                "execution_label": execution_label,
+                "target_shape": taxonomy.target_shape,
+                "method": taxonomy.method,
+                "code_name": code_name,
                 "array_name": array_name,
                 "case_count": len(items),
                 "unique_array_count": unique_array_count,
@@ -338,7 +295,7 @@ def _case_variation_rows(
                 "value_max": max(maxs) if maxs else "",
             }
         )
-    return rows, variable_array_count_by_candidate
+    return rows, variable_array_count_by_execution_label
 
 
 def _scalar_variation_rows(
@@ -346,23 +303,26 @@ def _scalar_variation_rows(
 ) -> tuple[list[dict[str, object]], dict[str, int]]:
     groups: dict[tuple[str, str, str], list[dict[str, object]]] = {}
     for row in scalar_rows:
-        key = (str(row["candidate"]), str(row["feature"]), str(row["scalar"]))
+        key = (str(row["execution_label"]), str(row["code_name"]), str(row["scalar"]))
         groups.setdefault(key, []).append(row)
 
     rows: list[dict[str, object]] = []
-    variable_scalar_count_by_candidate: dict[str, int] = {}
-    for (candidate, feature, scalar), items in sorted(groups.items()):
+    variable_scalar_count_by_execution_label: dict[str, int] = {}
+    for (execution_label, code_name, scalar), items in sorted(groups.items()):
+        taxonomy = classify_feature(code_name)
         values = _float_values(items, "value")
         unique_value_count = len({f"{value:.12g}" for value in values})
         varies = unique_value_count > 1
         if varies:
-            variable_scalar_count_by_candidate[candidate] = (
-                variable_scalar_count_by_candidate.get(candidate, 0) + 1
+            variable_scalar_count_by_execution_label[execution_label] = (
+                variable_scalar_count_by_execution_label.get(execution_label, 0) + 1
             )
         rows.append(
             {
-                "candidate": candidate,
-                "feature": feature,
+                "execution_label": execution_label,
+                "target_shape": taxonomy.target_shape,
+                "method": taxonomy.method,
+                "code_name": code_name,
                 "scalar": scalar,
                 "case_count": len(items),
                 "unique_value_count": unique_value_count,
@@ -372,49 +332,7 @@ def _scalar_variation_rows(
                 "value_range": (max(values) - min(values)) if values else "",
             }
         )
-    return rows, variable_scalar_count_by_candidate
-
-
-def _profile_variation_rows(
-    profile_rows: list[dict[str, object]],
-) -> tuple[list[dict[str, object]], dict[str, int]]:
-    groups: dict[tuple[str, str, str, str, str], list[dict[str, object]]] = {}
-    for row in profile_rows:
-        key = (
-            str(row["candidate"]),
-            str(row["feature"]),
-            str(row["key_type"]),
-            str(row["key"]),
-            str(row["scalar"]),
-        )
-        groups.setdefault(key, []).append(row)
-
-    rows: list[dict[str, object]] = []
-    variable_profile_count_by_candidate: dict[str, int] = {}
-    for (candidate, feature, key_type, key_value, scalar), items in sorted(groups.items()):
-        values = _float_values(items, "value")
-        unique_value_count = len({f"{value:.12g}" for value in values})
-        varies = unique_value_count > 1
-        if varies:
-            variable_profile_count_by_candidate[candidate] = (
-                variable_profile_count_by_candidate.get(candidate, 0) + 1
-            )
-        rows.append(
-            {
-                "candidate": candidate,
-                "feature": feature,
-                "key_type": key_type,
-                "key": key_value,
-                "scalar": scalar,
-                "case_count": len(items),
-                "unique_value_count": unique_value_count,
-                "varies": str(varies).lower(),
-                "value_min": min(values) if values else "",
-                "value_max": max(values) if values else "",
-                "value_range": (max(values) - min(values)) if values else "",
-            }
-        )
-    return rows, variable_profile_count_by_candidate
+    return rows, variable_scalar_count_by_execution_label
 
 
 def _append_limited(values: list[str], value: str, *, limit: int = 12) -> None:
@@ -426,60 +344,50 @@ def _append_limited(values: list[str], value: str, *, limit: int = 12) -> None:
         values.append("...")
 
 
-def _candidate_eval_summary_rows(
+def _eval_feature_signal_rows(
     *,
-    candidate_summary_rows: list[dict[str, object]],
+    eval_feature_summary_rows: list[dict[str, object]],
     variation_rows: list[dict[str, object]],
     scalar_variation_rows: list[dict[str, object]],
-    profile_variation_rows: list[dict[str, object]],
 ) -> list[dict[str, object]]:
     varying_arrays: dict[str, list[str]] = {}
     varying_scalars: dict[str, list[str]] = {}
-    varying_profiles: dict[str, list[str]] = {}
 
     for row in variation_rows:
         if row.get("varies") != "true":
             continue
-        candidate = str(row["candidate"])
-        item = f"{row['feature']}.{row['array_name']}"
-        _append_limited(varying_arrays.setdefault(candidate, []), item)
+        execution_label = str(row["execution_label"])
+        item = f"{row['code_name']}.{row['array_name']}"
+        _append_limited(varying_arrays.setdefault(execution_label, []), item)
 
     for row in scalar_variation_rows:
         if row.get("varies") != "true":
             continue
-        candidate = str(row["candidate"])
-        item = f"{row['feature']}.{row['scalar']}"
-        _append_limited(varying_scalars.setdefault(candidate, []), item)
-
-    for row in profile_variation_rows:
-        if row.get("varies") != "true":
-            continue
-        candidate = str(row["candidate"])
-        item = f"{row['feature']}.{row['key_type']}:{row['key']}.{row['scalar']}"
-        _append_limited(varying_profiles.setdefault(candidate, []), item)
+        execution_label = str(row["execution_label"])
+        item = f"{row['code_name']}.{row['scalar']}"
+        _append_limited(varying_scalars.setdefault(execution_label, []), item)
 
     rows: list[dict[str, object]] = []
-    for source in candidate_summary_rows:
-        candidate = str(source["candidate"])
+    for source in eval_feature_summary_rows:
+        execution_label = str(source["execution_label"])
         array_count = _int_value(source.get("variable_array_count", 0))
         scalar_count = _int_value(source.get("variable_scalar_count", 0))
-        profile_count = _int_value(source.get("variable_profile_count", 0))
-        total = array_count + scalar_count + profile_count
+        total = array_count + scalar_count
         rows.append(
             {
-                "candidate": candidate,
-                "features": source.get("features", ""),
+                "execution_label": execution_label,
+                "target_shape": source.get("target_shape", ""),
+                "method": source.get("method", ""),
+                "code_name": source.get("code_name", ""),
                 "case_count": source.get("case_count", ""),
                 "signal_status": "varies" if total else "constant",
                 "varying_output_count": total,
                 "varying_array_count": array_count,
                 "varying_scalar_count": scalar_count,
-                "varying_profile_count": profile_count,
                 "mean_runtime_sec": source.get("mean_runtime_sec", ""),
                 "mean_size_mb": source.get("mean_size_mb", ""),
-                "varying_arrays": "|".join(varying_arrays.get(candidate, [])),
-                "varying_scalars": "|".join(varying_scalars.get(candidate, [])),
-                "varying_profiles": "|".join(varying_profiles.get(candidate, [])),
+                "varying_arrays": "|".join(varying_arrays.get(execution_label, [])),
+                "varying_scalars": "|".join(varying_scalars.get(execution_label, [])),
             }
         )
     return rows
@@ -492,10 +400,10 @@ def run_transform_eval_from_config(config_path: str | Path) -> dict[str, object]
     index_path = resolve_path(spec.index, base_dir=base_dir)
     index_dir = index_path.parent
     out_dir = resolve_path(spec.output.dir, base_dir=base_dir)
-    candidates_dir = out_dir / "candidates"
+    eval_features_dir = out_dir / "eval_features"
     out_dir.mkdir(parents=True, exist_ok=True)
     _clean_eval_output_dirs(out_dir)
-    candidates_dir.mkdir(parents=True, exist_ok=True)
+    eval_features_dir.mkdir(parents=True, exist_ok=True)
 
     rows = read_transform_index(index_path)
     resolved_rows: list[dict[str, str]] = []
@@ -507,35 +415,36 @@ def run_transform_eval_from_config(config_path: str | Path) -> dict[str, object]
                 resolve_path(resolved["reference_path"], base_dir=index_dir)
             )
         resolved_rows.append(resolved)
-    candidate_summary_rows: list[dict[str, object]] = []
+    eval_feature_summary_rows: list[dict[str, object]] = []
     case_summary_rows: list[dict[str, object]] = []
     feature_rows: list[dict[str, object]] = []
     material_rows: list[dict[str, object]] = []
     scalar_rows: list[dict[str, object]] = []
-    profile_rows: list[dict[str, object]] = []
-    seen_candidate_ids: dict[str, str] = {}
+    seen_execution_ids: dict[str, str] = {}
 
-    for candidate_name, candidate_features in spec.candidates.items():
-        candidate_id = _safe_candidate_id(candidate_name)
-        existing_name = seen_candidate_ids.get(candidate_id)
+    for eval_feature in spec.features:
+        execution_label = f"{eval_feature.target_shape}_{eval_feature.method}"
+        execution_id = _safe_execution_id(execution_label)
+        existing_name = seen_execution_ids.get(execution_id)
         if existing_name is not None:
             raise ValueError(
-                "transform-eval candidate names collide after path sanitization: "
-                f"{existing_name!r} and {candidate_name!r} -> {candidate_id!r}"
+                "transform-eval feature labels collide after path sanitization: "
+                f"{existing_name!r} and {execution_label!r} -> {execution_id!r}"
             )
-        seen_candidate_ids[candidate_id] = candidate_name
-        candidate_dir = candidates_dir / candidate_id
+        seen_execution_ids[execution_id] = execution_label
+        feature_dir = eval_features_dir / eval_feature.target_shape / eval_feature.method
+        feature_spec = FeatureSpec(use=(eval_feature.code_name,))
         total_runtime_sec = 0.0
         total_size_mb = 0.0
-        candidate_feature_count = 0
+        output_feature_count = 0
 
         for row in resolved_rows:
             case_id = row["case_id"]
             case_row = dict(row)
-            case_out = candidate_dir / "cases" / case_id
+            case_out = feature_dir / "cases" / case_id
             transform_spec = transform_spec_from_index_row(
                 case_row,
-                batch_spec_features=candidate_features,
+                batch_spec_features=feature_spec,
                 batch_spec_process=spec.process,
                 batch_spec_view=spec.view,
                 output_dir=case_out,
@@ -556,7 +465,10 @@ def run_transform_eval_from_config(config_path: str | Path) -> dict[str, object]
 
             case_summary_rows.append(
                 {
-                    "candidate": candidate_name,
+                    "execution_label": execution_label,
+                    "target_shape": eval_feature.target_shape,
+                    "method": eval_feature.method,
+                    "code_name": eval_feature.code_name,
                     "case_id": case_id,
                     "runtime_sec": runtime_sec,
                     "output_size_mb": size_mb,
@@ -564,43 +476,37 @@ def run_transform_eval_from_config(config_path: str | Path) -> dict[str, object]
                 }
             )
             feature_items = _feature_summary_items(case_out / "feature_summary.json")
-            candidate_feature_count += len(feature_items)
+            output_feature_count += len(feature_items)
             feature_rows.extend(
                 _feature_stats_rows(
-                    candidate=candidate_name,
+                    execution_label=execution_label,
                     case_id=case_id,
                     case_out=case_out,
                 )
             )
             material_rows.extend(
                 _material_coverage_rows(
-                    candidate=candidate_name,
+                    execution_label=execution_label,
                     case_id=case_id,
                     case_out=case_out,
                 )
             )
             scalar_rows.extend(
                 _summary_scalar_rows(
-                    candidate=candidate_name,
+                    execution_label=execution_label,
                     case_id=case_id,
                     case_out=case_out,
                 )
             )
-            profile_rows.extend(
-                _profile_value_rows(
-                    candidate=candidate_name,
-                    case_id=case_id,
-                    case_out=case_out,
-                )
-            )
-
         case_count = len(rows)
-        candidate_summary_rows.append(
+        eval_feature_summary_rows.append(
             {
-                "candidate": candidate_name,
-                "features": "|".join(candidate_features.use),
+                "execution_label": execution_label,
+                "target_shape": eval_feature.target_shape,
+                "method": eval_feature.method,
+                "code_name": eval_feature.code_name,
                 "case_count": case_count,
-                "feature_count": candidate_feature_count,
+                "output_feature_count": output_feature_count,
                 "total_runtime_sec": total_runtime_sec,
                 "mean_runtime_sec": total_runtime_sec / case_count,
                 "total_size_mb": total_size_mb,
@@ -608,80 +514,87 @@ def run_transform_eval_from_config(config_path: str | Path) -> dict[str, object]
             }
         )
 
-    variation_rows, variable_array_count_by_candidate = _case_variation_rows(feature_rows)
-    scalar_variation_rows, variable_scalar_count_by_candidate = _scalar_variation_rows(
+    variation_rows, variable_array_count_by_execution_label = _case_variation_rows(feature_rows)
+    scalar_variation_rows, variable_scalar_count_by_execution_label = _scalar_variation_rows(
         scalar_rows
     )
-    profile_variation_rows, variable_profile_count_by_candidate = _profile_variation_rows(
-        profile_rows
-    )
-    for candidate_row in candidate_summary_rows:
-        candidate = str(candidate_row["candidate"])
-        candidate_row["variable_array_count"] = variable_array_count_by_candidate.get(candidate, 0)
-        candidate_row["variable_scalar_count"] = variable_scalar_count_by_candidate.get(
-            candidate,
+    for eval_feature_row in eval_feature_summary_rows:
+        execution_label = str(eval_feature_row["execution_label"])
+        eval_feature_row["variable_array_count"] = variable_array_count_by_execution_label.get(
+            execution_label,
             0,
         )
-        candidate_row["variable_profile_count"] = variable_profile_count_by_candidate.get(
-            candidate,
+        eval_feature_row["variable_scalar_count"] = variable_scalar_count_by_execution_label.get(
+            execution_label,
             0,
         )
-    candidate_eval_rows = _candidate_eval_summary_rows(
-        candidate_summary_rows=candidate_summary_rows,
+    eval_feature_signal_rows = _eval_feature_signal_rows(
+        eval_feature_summary_rows=eval_feature_summary_rows,
         variation_rows=variation_rows,
         scalar_variation_rows=scalar_variation_rows,
-        profile_variation_rows=profile_variation_rows,
     )
 
     _write_csv(
-        out_dir / "candidate_summary.csv",
-        candidate_summary_rows,
+        out_dir / "eval_feature_summary.csv",
+        eval_feature_summary_rows,
         [
-            "candidate",
-            "features",
+            "execution_label",
+            "target_shape",
+            "method",
+            "code_name",
             "case_count",
-            "feature_count",
+            "output_feature_count",
             "total_runtime_sec",
             "mean_runtime_sec",
             "total_size_mb",
             "mean_size_mb",
             "variable_array_count",
             "variable_scalar_count",
-            "variable_profile_count",
         ],
     )
     _write_csv(
-        out_dir / "candidate_eval_summary.csv",
-        candidate_eval_rows,
+        out_dir / "eval_feature_signal.csv",
+        eval_feature_signal_rows,
         [
-            "candidate",
-            "features",
+            "execution_label",
+            "target_shape",
+            "method",
+            "code_name",
             "case_count",
             "signal_status",
             "varying_output_count",
             "varying_array_count",
             "varying_scalar_count",
-            "varying_profile_count",
             "mean_runtime_sec",
             "mean_size_mb",
             "varying_arrays",
             "varying_scalars",
-            "varying_profiles",
         ],
     )
-    write_json(out_dir / "candidate_eval_summary.json", {"candidates": candidate_eval_rows})
+    write_json(out_dir / "eval_feature_signal.json", {"features": eval_feature_signal_rows})
     _write_csv(
         out_dir / "case_summary.csv",
         case_summary_rows,
-        ["candidate", "case_id", "runtime_sec", "output_size_mb", "output_dir"],
+        [
+            "execution_label",
+            "target_shape",
+            "method",
+            "code_name",
+            "case_id",
+            "runtime_sec",
+            "output_size_mb",
+            "output_dir",
+        ],
     )
     _write_csv(
         out_dir / "feature_stats.csv",
         feature_rows,
         [
-            "candidate",
+            "execution_label",
+            "target_shape",
+            "method",
+            "code_name",
             "case_id",
-            "feature",
             "array_name",
             "path",
             "semantics",
@@ -701,8 +614,10 @@ def run_transform_eval_from_config(config_path: str | Path) -> dict[str, object]
         out_dir / "case_variation_summary.csv",
         variation_rows,
         [
-            "candidate",
-            "feature",
+            "execution_label",
+            "target_shape",
+            "method",
+            "code_name",
             "array_name",
             "case_count",
             "unique_array_count",
@@ -718,9 +633,11 @@ def run_transform_eval_from_config(config_path: str | Path) -> dict[str, object]
         out_dir / "material_coverage.csv",
         material_rows,
         [
-            "candidate",
+            "execution_label",
+            "target_shape",
+            "method",
+            "code_name",
             "case_id",
-            "feature",
             "material_id",
             "voxel_count",
             "voxel_fraction",
@@ -729,14 +646,25 @@ def run_transform_eval_from_config(config_path: str | Path) -> dict[str, object]
     _write_csv(
         out_dir / "feature_scalar_summary.csv",
         scalar_rows,
-        ["candidate", "case_id", "feature", "path", "scalar", "value"],
+        [
+            "execution_label",
+            "target_shape",
+            "method",
+            "code_name",
+            "case_id",
+            "path",
+            "scalar",
+            "value",
+        ],
     )
     _write_csv(
         out_dir / "scalar_variation_summary.csv",
         scalar_variation_rows,
         [
-            "candidate",
-            "feature",
+            "execution_label",
+            "target_shape",
+            "method",
+            "code_name",
             "scalar",
             "case_count",
             "unique_value_count",
@@ -746,46 +674,30 @@ def run_transform_eval_from_config(config_path: str | Path) -> dict[str, object]
             "value_range",
         ],
     )
-    _write_csv(
-        out_dir / "feature_profile_values.csv",
-        profile_rows,
-        ["candidate", "case_id", "feature", "path", "key_type", "key", "scalar", "value"],
-    )
-    _write_csv(
-        out_dir / "profile_variation_summary.csv",
-        profile_variation_rows,
-        [
-            "candidate",
-            "feature",
-            "key_type",
-            "key",
-            "scalar",
-            "case_count",
-            "unique_value_count",
-            "varies",
-            "value_min",
-            "value_max",
-            "value_range",
-        ],
-    )
-    figures_manifest = write_transform_eval_figures(
+    figures_index = write_transform_eval_figures(
         out_dir=out_dir,
         view=spec.view,
         index_rows=resolved_rows,
-        candidate_summary_rows=candidate_summary_rows,
-        candidate_eval_rows=candidate_eval_rows,
+        eval_feature_summary_rows=eval_feature_summary_rows,
+        eval_feature_signal_rows=eval_feature_signal_rows,
         variation_rows=variation_rows,
         scalar_variation_rows=scalar_variation_rows,
-        profile_variation_rows=profile_variation_rows,
         case_summary_rows=case_summary_rows,
     )
     summary: dict[str, object] = {
         "task": "transform-eval",
         "status": "OK",
         "case_count": len(rows),
-        "candidate_count": len(spec.candidates),
-        "candidates": list(spec.candidates),
-        "figures": figures_manifest,
+        "eval_feature_count": len(spec.features),
+        "eval_features": [
+            {
+                "target_shape": item.target_shape,
+                "method": item.method,
+                "code_name": item.code_name,
+            }
+            for item in spec.features
+        ],
+        "figures": figures_index,
         "output_dir": str(out_dir),
     }
     write_json(out_dir / "summary.json", summary)

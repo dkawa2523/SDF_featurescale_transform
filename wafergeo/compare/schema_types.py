@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+from wafergeo.compare.feature_taxonomy import resolve_transform_eval_code_name
 from wafergeo.compare.metric_defs import public_metric_names
 
 SimulationKind = Literal["vti_label", "npz_label"]
@@ -10,6 +11,8 @@ TargetKind = Literal["contour_json", "vti_label", "npz_label"]
 FeatureName = str
 MetricName = str
 AxisName = Literal["x", "y", "z"]
+TargetShapeName = Literal["full_shape", "material_shape", "process_delta_shape"]
+TransformEvalMethodName = Literal["sdf", "multi_scale_tsdf", "udf"]
 
 FEATURE_NAMES = {
     "sdf",
@@ -17,15 +20,35 @@ FEATURE_NAMES = {
     "tsdf_views",
     "udf",
     "material_sdf",
-    "material_profile",
-    "process_delta_profile",
+    "material_tsdf_views",
+    "material_udf",
+    "material_interface_relation",
     "process_delta_sdf",
-    "sdf3d",
-    "mesh",
+    "process_delta_tsdf_views",
+    "process_delta_udf",
+    "process_transition_relation",
     "contour",
-    "slice",
 }
-PROCESS_FEATURE_NAMES = {"process_delta_profile", "process_delta_sdf"}
+TRANSFORM_FEATURE_NAMES = {
+    "sdf_raw",
+    "tsdf_views",
+    "udf",
+    "material_sdf",
+    "material_tsdf_views",
+    "material_udf",
+    "material_interface_relation",
+    "process_delta_sdf",
+    "process_delta_tsdf_views",
+    "process_delta_udf",
+    "process_transition_relation",
+}
+COMPARE_FEATURE_NAMES = {"sdf", "contour"}
+PROCESS_FEATURE_NAMES = {
+    "process_delta_sdf",
+    "process_delta_tsdf_views",
+    "process_delta_udf",
+    "process_transition_relation",
+}
 METRIC_NAMES = public_metric_names()
 AXIS_NAMES = {"x", "y", "z"}
 
@@ -191,22 +214,37 @@ class BatchTransformSpec:
 
 
 @dataclass(frozen=True)
+class TransformEvalFeatureSpec:
+    target_shape: TargetShapeName
+    method: TransformEvalMethodName
+    code_name: FeatureName
+
+    def __post_init__(self) -> None:
+        expected = resolve_transform_eval_code_name(self.target_shape, self.method)
+        if self.code_name != expected:
+            raise ValueError(
+                "transform-eval feature code_name does not match target_shape and method: "
+                f"target_shape={self.target_shape!r}, method={self.method!r}, "
+                f"code_name={self.code_name!r}, expected={expected!r}"
+            )
+
+
+@dataclass(frozen=True)
 class TransformEvalSpec:
     task: Literal["transform-eval"]
     index: str
     view: ViewSpec
-    candidates: dict[str, FeatureSpec]
+    features: tuple[TransformEvalFeatureSpec, ...]
     output: OutputSpec
     process: ProcessSpec = field(default_factory=ProcessSpec)
 
     def __post_init__(self) -> None:
         if not self.index:
             raise ValueError("input.index must be non-empty")
-        if not self.candidates:
-            raise ValueError("eval.candidates must be non-empty")
+        if not self.features:
+            raise ValueError("eval.features must be non-empty")
         uses_process_feature = any(
-            set(features.use).intersection(PROCESS_FEATURE_NAMES)
-            for features in self.candidates.values()
+            item.target_shape == "process_delta_shape" for item in self.features
         )
         if uses_process_feature and not self.process.enabled:
             raise ValueError("process features require process.enabled: true")
@@ -238,7 +276,7 @@ class BatchCompareSpec:
 
 
 @dataclass(frozen=True)
-class CompareEvalCandidateSpec:
+class CompareEvalMetricSetSpec:
     features: FeatureSpec
     metrics: MetricSpec
 
@@ -248,11 +286,11 @@ class CompareEvalSpec:
     task: Literal["compare-eval"]
     index: str
     view: ViewSpec
-    candidates: dict[str, CompareEvalCandidateSpec]
+    metric_sets: dict[str, CompareEvalMetricSetSpec]
     output: OutputSpec
 
     def __post_init__(self) -> None:
         if not self.index:
             raise ValueError("input.index must be non-empty")
-        if not self.candidates:
-            raise ValueError("eval.candidates must be non-empty")
+        if not self.metric_sets:
+            raise ValueError("eval.metric_sets must be non-empty")

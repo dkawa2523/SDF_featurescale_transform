@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 from typing import cast
 
+from wafergeo.compare.output_cleanup import clean_batch_transform_output_dir
 from wafergeo.compare.runner import run_transform_spec
 from wafergeo.compare.runtime_io import resolve_path, write_json, write_run_info
 from wafergeo.compare.schema import (
@@ -169,6 +170,7 @@ def run_batch_transform_from_config(config_path: str | Path) -> dict[str, object
     out_dir = resolve_path(spec.output.dir, base_dir=base_dir)
     cases_dir = out_dir / "cases"
     out_dir.mkdir(parents=True, exist_ok=True)
+    clean_batch_transform_output_dir(out_dir)
     cases_dir.mkdir(parents=True, exist_ok=True)
 
     rows = read_transform_index(index_path)

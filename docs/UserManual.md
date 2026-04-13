@@ -1,23 +1,23 @@
 # User Manual
 
-このページは、利用者が YAML を編集して実行し、出力を読むための説明です。
-コードを改修する場合は [Developer Manual](DeveloperManual.md) を参照してください。
+`wafergeo` converts geometry data into reusable feature files and compares
+simulation geometry with target geometry. External learning or optimization
+code should consume the CSV/JSON/NPZ outputs written here.
 
-## 入力データ
+## Inputs
 
-| kind | 用途 | 必須内容 |
-| --- | --- | --- |
-| `npz_label` | 推奨の label volume 入力 | `labels` shape `[X,Y,Z]`, `spacing`, `origin` |
-| `vti_label` | VTI label volume 入力 | VTI の label array |
-| `contour_json` | target 輪郭入力 | `contours[].points` と `units` |
+| kind | use |
+| --- | --- |
+| `npz_label` | Label volume in an NPZ file. Use `labels` with shape `[X,Y,Z]`. Optional arrays: `spacing`, `origin`, `material_ids`. |
+| `vti_label` | Label volume stored in VTI. |
+| `contour_json` | Contour target for comparison metrics. |
 
-`npz_label` はユーザー向けには `[X,Y,Z]` です。
-内部では `[Z,Y,X]` に変換して処理します。
+If material id `0` is not void in your data, set `void_id` in YAML or the index
+CSV.
 
-`void_id` は「媒質がない」領域です。
-データにより void ID が異なるため、必要なら YAML または index CSV で明示してください。
+## YAML Shape
 
-## YAML の基本形
+Keep YAML shallow.
 
 ```yaml
 task: transform
@@ -25,32 +25,20 @@ task: transform
 input:
   simulation:
     kind: npz_label
-    path: data/examples/sim_case.npz
+    path: data/final.npz
 
 view:
   axes: [x, z]
   depth_axis: y
 
 features:
-  use: [sdf_raw, material_profile]
+  use: [sdf_raw, material_sdf, material_tsdf_views]
 
 output:
   dir: outputs/example_transform
 ```
 
-通常 YAML は次のブロックだけを使います。
-
-| block | 役割 |
-| --- | --- |
-| `task` | 実行する workflow |
-| `input` | simulation, target, index CSV |
-| `view` | 3D 形状をどの 2D 面で見るか |
-| `features` | 計算する特徴量 |
-| `metrics` | 比較に使う metric |
-| `output` | 出力先 |
-
-加工前後差分を使う場合だけ、追加で `process.enabled` と
-`input.reference` を使います。
+Process-aware features need a reference label and `process.enabled`.
 
 ```yaml
 task: transform
@@ -67,67 +55,111 @@ process:
   enabled: true
 
 features:
-  use: [process_delta_profile, process_delta_sdf]
+  use: [process_delta_sdf, process_delta_tsdf_views]
 
 output:
   dir: outputs/process_delta
 ```
 
-## workflow の使い分け
+## Workflows
 
-| やりたいこと | workflow |
+| workflow | use |
 | --- | --- |
-| 1 case を特徴量化したい | `transform` |
-| 複数 case を同じ特徴量で変換したい | `batch-transform` |
-| 複数の特徴量候補を比較したい | `transform-eval` |
-| simulation と target を 1 対 1 で比較したい | `compare` |
-| 複数 case を target に近い順に並べたい | `batch-compare` |
-| 複数 metric set を比較したい | `compare-eval` |
+| `transform` | Convert one case into feature files. |
+| `batch-transform` | Convert many cases with the same feature list. |
+| `transform-eval` | Compare feature methods on many cases. |
+| `compare` | Compare one simulation with one target. |
+| `batch-compare` | Compare many simulation/target pairs. |
+| `compare-eval` | Compare evaluation axes on the same cases. |
 
-## transform の特徴量
+## Transform Features
 
-| feature | 出力 | 主な用途 |
+Read transform features with the terms defined in
+[Terminology](Terminology.md):
+
+```text
+target_shape x method, plus relation outputs derived from SDF stacks
+```
+
+| feature | target_shape | method or relation |
 | --- | --- | --- |
-| `sdf` | 2D SDF | compare 用の 2D 距離場 |
-| `sdf_raw` | 3D raw SDF | 全体形状の距離場表現 |
-| `tsdf_views` | clip 幅違いの TSDF | 学習用の距離場候補 |
-| `udf` | unsigned distance | 開いた輪郭や境界距離 |
-| `material_sdf` | material ごとの SDF | material-aware な形状表現 |
-| `material_profile` | CSV/JSON profile | material 量、範囲、z profile |
-| `process_delta_profile` | CSV/JSON profile | 加工前後の transition 集計 |
-| `process_delta_sdf` | NPZ/JSON | 加工差分領域の距離場 |
-| `mesh` | mesh file | 3D surface の外部利用 |
-| `contour`, `slice` | JSON/NPZ | 2D 確認や compare 補助 |
+| `sdf_raw` | `full_shape` | `sdf` |
+| `tsdf_views` | `full_shape` | `multi_scale_tsdf` |
+| `udf` | `full_shape` | `udf` |
+| `material_sdf` | `material_shape` | `sdf` |
+| `material_tsdf_views` | `material_shape` | `multi_scale_tsdf` |
+| `material_udf` | `material_shape` | `udf` |
+| `material_interface_relation` | `material_shape` | relation |
+| `process_delta_sdf` | `process_delta_shape` | `sdf` |
+| `process_delta_tsdf_views` | `process_delta_shape` | `multi_scale_tsdf` |
+| `process_delta_udf` | `process_delta_shape` | `udf` |
+| `process_transition_relation` | `process_delta_shape` | relation |
 
-## compare の metric
+`material_sdf` and `process_delta_sdf` are not separate methods. They are SDF
+applied to different target shapes. Relation outputs describe material
+interfaces or reference-to-final material transitions.
 
-| metric | 主な意味 |
+## Transform-Eval Outputs
+
+`transform-eval` writes the normal eval CSV files plus diagnostic figures.
+Use the figure directory as a quick inspection layer, not as the source of truth.
+
+Important figure files:
+
+| output | use |
 | --- | --- |
-| `cd` | 断面 CD。高さごとの幅や edge 位置の差 |
-| `chamfer` | contour 点群間の距離 |
-| `sdf` | 2D SDF 差分 |
-| `sdf_band` | 境界近傍に絞った SDF 差分 |
-| `sdf_material` | material ごとの SDF 差分 |
-| `iou` | label / mask の重なり |
-| `profile` | profile 量の差 |
-| `corner` | 局所 corner 形状の差 |
-| `topology` | 連結性などの大域形状差 |
+| `figures/input_shape_sections.png` | Original material sections for all cases. |
+| `figures/by_target_shape/<target_shape>/<method>/field.png` | Field report for one explicit target shape and method. |
+| `figures/by_target_shape/<target_shape>/<method>/scores.png` | Scores for that target shape and method. |
+| `figures/by_target_shape/<target_shape>/<method>/case_distance.png` | Case distance in that feature space. |
+| `figures/by_target_shape/<target_shape>/relations/<relation>/field.png` | Relation report derived from SDF fields. |
+| `figures/feature_scores.csv` | Machine-readable scores with separate `role`, `target_shape`, `method`, `relation`, and `code_name` columns. |
+| `figures/case_distance.csv` | Machine-readable case distances with separate `role`, `target_shape`, `method`, and `relation` columns. |
 
-詳しい使い分けは [Scoring](Scoring.md) を参照してください。
+Avoid reading one mixed score across all feature types. `shape_match`,
+`boundary_match`, `interface_match`, `transition_match`, `case_sensitivity`,
+and `data_cost` answer different questions.
 
-## 出力の見方
+## Compare Metrics
 
-| 出力 | 意味 |
+| metric | use |
 | --- | --- |
-| `features/` | 特徴量本体 |
-| `feature_summary.json` | どの feature を何として出したか |
-| `objective.json` | 最適化や外部 sampler が読む代表 loss |
-| `metrics.csv` | metric ごとの値 |
-| `difference.png` | compare の補助確認画像 |
-| `ranking.csv` | batch-compare の順位 |
-| `candidate_summary.csv` | eval の候補別 summary |
-| `_run/used_config.yaml` | 実行に使った設定の控え |
-| `_run/run_info.json` | 実行日時、入力、task の記録 |
+| `cd` | Cross-section CD / edge position difference. |
+| `chamfer` | Contour point distance. |
+| `sdf` | 2D SDF loss. |
+| `sdf_band` | Boundary-band SDF loss. |
+| `sdf_material` | Per-material SDF loss. |
+| `iou` | Mask overlap. |
+| `profile` | Profile value difference. |
+| `corner` | Local corner-shape difference. |
+| `topology` | Connectivity and large-shape checks. |
 
-`_run/` は再現性のための補助情報です。
-ユーザーが編集する入力ではありません。
+See [Scoring](Scoring.md) for metric details.
+
+## Compare-Eval Outputs
+
+`compare-eval` compares named evaluation axes on the same cases. The YAML field
+is still `eval.metric_sets`, but each key should be read as an evaluation axis:
+
+| axis | use |
+| --- | --- |
+| `height_cd` | Height-wise CD baseline on `[x,z]` or `[y,z]` views. |
+| `shape_distance` | SDF and IoU shape comparison. |
+| `material_distance` | Per-material SDF diagnostic for label-volume targets. |
+| `boundary_band_distance` | Boundary-neighborhood SDF diagnostic. |
+
+Read compare-eval outputs in this order:
+
+1. `axis_agreement.csv`
+2. `figures/cd_vs_sdf_scatter.png`
+3. `figures/comparison_loss_heatmap.png`
+4. `figures/representative_differences/`
+
+`comparison_loss` is the normalized value used for ranking within an evaluation
+axis. `case_scores.csv` contains the raw per-metric columns such as `cd_loss`,
+`sdf_loss`, `iou_loss`, `sdf_material_loss`, and `sdf_band_loss`.
+
+## Generated Files
+
+CSV/JSON/NPZ outputs are authoritative. PNG outputs are diagnostics.
+Generated `outputs/`, `site/`, and caches should not be committed.

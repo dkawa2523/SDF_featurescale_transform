@@ -12,7 +12,6 @@ _SUBMODULES = (
     "io",
     "label",
     "sdf",
-    "mesh",
     "compare",
 )
 

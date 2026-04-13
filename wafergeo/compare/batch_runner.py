@@ -14,6 +14,7 @@ from wafergeo.compare.output_artifacts import (
     write_per_material_sdf_csv,
     write_ranking_top_png,
 )
+from wafergeo.compare.output_cleanup import clean_batch_compare_output_dir
 from wafergeo.compare.runner import (
     PreparedTarget,
     build_input_summary_payload,
@@ -204,6 +205,7 @@ def run_batch_compare_from_config(config_path: str | Path) -> dict[str, object]:
     differences_dir = out_dir / "differences"
     shared_targets_dir = out_dir / "shared_targets"
     out_dir.mkdir(parents=True, exist_ok=True)
+    clean_batch_compare_output_dir(out_dir)
     cases_dir.mkdir(parents=True, exist_ok=True)
     if spec.output.difference_images:
         differences_dir.mkdir(parents=True, exist_ok=True)

@@ -300,10 +300,10 @@ def write_ranking_top_png(
     return True
 
 
-def write_label_preview_png(path: str | Path, labels: np.ndarray, *, void_id: int = 0) -> None:
+def write_label_image_png(path: str | Path, labels: np.ndarray, *, void_id: int = 0) -> None:
     arr = np.asarray(labels)
     if arr.ndim != 2:
-        raise ValueError("label preview expects a 2D label array")
+        raise ValueError("label image expects a 2D label array")
     rgb = np.full(arr.shape + (3,), 245, dtype=np.uint8)
     palette = np.asarray(
         [

@@ -222,7 +222,7 @@ output:
 
 
 def test_compare_yaml_rejects_transform_only_features(tmp_path: Path) -> None:
-    config = tmp_path / "compare_mesh.yaml"
+    config = tmp_path / "compare_material_sdf.yaml"
     config.write_text(
         """
 task: compare
@@ -234,7 +234,7 @@ input:
     kind: contour_json
     path: target.json
 features:
-  use: [sdf, mesh]
+  use: [sdf, material_sdf]
 output:
   dir: out
 """,
@@ -426,7 +426,7 @@ output:
         load_compare_spec_yaml(compare_missing_corner)
 
 
-def test_compare_eval_yaml_accepts_candidates_and_validates_dependencies(tmp_path: Path) -> None:
+def test_compare_eval_yaml_accepts_metric_sets_and_validates_dependencies(tmp_path: Path) -> None:
     config = tmp_path / "compare_eval.yaml"
     config.write_text(
         f"""
@@ -437,17 +437,22 @@ view:
   axes: [x, z]
   depth_axis: y
 eval:
-  candidates:
-    primary:
+  metric_sets:
+    height_cd:
+      features:
+        use: [contour]
+      metrics:
+        use: [cd]
+    shape_distance:
       features:
         use: [sdf, contour]
       metrics:
-        use: [cd, sdf, iou]
-    material:
+        use: [sdf, iou]
+    material_distance:
       features:
         use: [sdf, contour]
       metrics:
-        use: [cd, sdf, iou, sdf_material]
+        use: [sdf, iou, sdf_material]
 output:
   dir: {tmp_path / "out"}
 """,
@@ -457,9 +462,14 @@ output:
     spec = load_compare_eval_spec_yaml(config)
 
     assert spec.task == "compare-eval"
-    assert tuple(spec.candidates) == ("primary", "material")
-    assert spec.candidates["primary"].metrics.use == ("cd", "sdf", "iou")
-    assert spec.candidates["material"].metrics.use == ("cd", "sdf", "iou", "sdf_material")
+    assert tuple(spec.metric_sets) == ("height_cd", "shape_distance", "material_distance")
+    assert spec.metric_sets["height_cd"].metrics.use == ("cd",)
+    assert spec.metric_sets["shape_distance"].metrics.use == ("sdf", "iou")
+    assert spec.metric_sets["material_distance"].metrics.use == (
+        "sdf",
+        "iou",
+        "sdf_material",
+    )
 
     missing_feature = tmp_path / "compare_eval_missing_feature.yaml"
     missing_feature.write_text(
@@ -468,7 +478,7 @@ task: compare-eval
 input:
   index: {tmp_path / "pairs.csv"}
 eval:
-  candidates:
+  metric_sets:
     bad:
       features:
         use: [sdf]
@@ -490,7 +500,7 @@ task: compare-eval
 input:
   index: {tmp_path / "pairs.csv"}
 eval:
-  candidates:
+  metric_sets:
     bad:
       features:
         use: [sdf_raw]
@@ -683,7 +693,7 @@ input:
     kind: npz_label
     path: {tmp_path / "final.npz"}
 features:
-  use: [process_delta_profile]
+  use: [process_delta_sdf]
 output:
   dir: {tmp_path / "out"}
 """,

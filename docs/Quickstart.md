@@ -1,25 +1,23 @@
 # Quickstart
 
-最短で動作確認するための手順です。
-詳しい YAML と出力の意味は [User Manual](UserManual.md) を参照してください。
+Run from the repository root.
 
-## 1. セットアップ
+## Install
 
 ```powershell
-Set-Location C:\Users\user\Desktop\SDF_fs
 py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -e ".[scipy,viz,dev]"
 ```
 
-VTI を読む場合は `vtk` extra も入れます。
+Add `vtk` only when you need VTI input.
 
 ```powershell
 python -m pip install -e ".[scipy,vtk,viz,dev]"
 ```
 
-## 2. example を実行する
+## Run Examples
 
 ```powershell
 python -m wafergeo run transform --config .\configs\examples\transform.simple.yaml
@@ -30,20 +28,43 @@ python -m wafergeo run batch-compare --config .\configs\examples\batch-compare.s
 python -m wafergeo run compare-eval --config .\configs\examples\compare-eval.simple.yaml
 ```
 
-## 3. 出力を見る
+## Check Outputs
 
-| workflow | まず見るファイル |
+| workflow | first files to inspect |
 | --- | --- |
 | `transform` | `features/`, `feature_summary.json` |
 | `batch-transform` | `dataset_index.csv`, `features_summary.csv` |
-| `transform-eval` | `candidate_eval_summary.csv`, `case_variation_summary.csv` |
+| `transform-eval` | `feature_scores.csv`, `figures/by_target_shape/` |
 | `compare` | `objective.json`, `metrics.csv`, `difference.png` |
 | `batch-compare` | `objectives.csv`, `ranking.csv` |
-| `compare-eval` | `candidate_summary.csv`, `case_scores.csv` |
+| `compare-eval` | `axis_agreement.csv`, `case_scores.csv`, `figures/` |
 
-`outputs/` は実行結果です。不要なら削除して構いません。
+Generated outputs live under `outputs/` and should not be committed.
 
-## 4. よく使う確認コマンド
+## Read Eval Results
+
+For `transform-eval`, start with:
+
+1. `figures/input_shape_sections.png`
+2. `figures/feature_scores.csv`
+3. `figures/by_target_shape/<target_shape>/<method>/field.png`
+4. `figures/by_target_shape/<target_shape>/<method>/case_distance.png`
+
+Use `target_shape x method` when reading transform results. For example,
+`material_shape/sdf` means SDF applied to each material shape.
+
+For `compare-eval`, start with:
+
+1. `axis_agreement.csv`
+2. `figures/cd_vs_sdf_scatter.png`
+3. `figures/comparison_loss_heatmap.png`
+4. `figures/representative_differences/`
+
+`cd_vs_sdf_scatter.png` compares evaluation-axis `comparison_loss` values:
+the height-CD baseline axis against the SDF shape-distance axis. Use
+`case_scores.csv` when you need the raw per-metric losses.
+
+## Validate
 
 ```powershell
 py -3.13 -m ruff check wafergeo tests
@@ -52,5 +73,4 @@ py -3.13 -m pytest -q
 py -3.13 -m mkdocs build --strict
 ```
 
-`mkdocs build` 後に作られる `site/` は生成物です。
-Git 管理には入れません。
+Remove generated `site/` after a docs build.

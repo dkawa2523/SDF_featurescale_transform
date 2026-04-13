@@ -5,13 +5,16 @@ from typing import Any, cast
 
 import yaml  # type: ignore[import-untyped]
 
+from wafergeo.compare.feature_taxonomy import resolve_transform_eval_code_name
 from wafergeo.compare.metric_defs import METRIC_DEFINITIONS
 from wafergeo.compare.schema_types import (
+    COMPARE_FEATURE_NAMES,
+    TRANSFORM_FEATURE_NAMES,
     AxisName,
     BatchCompareSpec,
     BatchTransformSpec,
     CdGaugeSpec,
-    CompareEvalCandidateSpec,
+    CompareEvalMetricSetSpec,
     CompareEvalSpec,
     CompareSpec,
     FeatureName,
@@ -24,6 +27,9 @@ from wafergeo.compare.schema_types import (
     SimulationKind,
     TargetInputSpec,
     TargetKind,
+    TargetShapeName,
+    TransformEvalFeatureSpec,
+    TransformEvalMethodName,
     TransformEvalSpec,
     TransformSpec,
     ViewSpec,
@@ -208,11 +214,13 @@ def load_transform_spec_yaml(path: str | Path) -> TransformSpec:
     raw = _read_yaml(path)
     _require_task(raw, "transform")
     input_raw = _mapping(raw, "input")
+    features = _features(_mapping(raw, "features", default={"use": ["sdf_raw"]}))
+    _require_allowed_features(features, task="transform", allowed=TRANSFORM_FEATURE_NAMES)
     return TransformSpec(
         task="transform",
         simulation=_simulation(_mapping(input_raw, "simulation")),
         view=_view(_mapping(raw, "view", default={})),
-        features=_features(_mapping(raw, "features", default={"use": ["sdf", "contour"]})),
+        features=features,
         output=_output(_mapping(raw, "output")),
         reference=_optional_simulation(input_raw, "reference"),
         process=_process(_mapping(raw, "process", default={})),
@@ -223,28 +231,47 @@ def load_batch_transform_spec_yaml(path: str | Path) -> BatchTransformSpec:
     raw = _read_yaml(path)
     _require_task(raw, "batch-transform")
     input_raw = _mapping(raw, "input")
+    features = _features(_mapping(raw, "features", default={"use": ["sdf_raw"]}))
+    _require_allowed_features(features, task="batch-transform", allowed=TRANSFORM_FEATURE_NAMES)
     return BatchTransformSpec(
         task="batch-transform",
         index=str(input_raw.get("index", "")),
         view=_view(_mapping(raw, "view", default={})),
-        features=_features(_mapping(raw, "features", default={"use": ["sdf", "contour"]})),
+        features=features,
         output=_output(_mapping(raw, "output")),
         process=_process(_mapping(raw, "process", default={})),
     )
 
 
-def _transform_eval_candidates(raw: dict[str, Any]) -> dict[str, FeatureSpec]:
+def _transform_eval_features(raw: dict[str, Any]) -> tuple[TransformEvalFeatureSpec, ...]:
     eval_raw = _mapping(raw, "eval")
-    candidates_raw = _mapping(eval_raw, "candidates")
-    candidates: dict[str, FeatureSpec] = {}
-    for name, value in candidates_raw.items():
+    features_raw = eval_raw.get("features")
+    if not isinstance(features_raw, list) or not features_raw:
+        raise ValueError("eval.features must be a non-empty list")
+    features: list[TransformEvalFeatureSpec] = []
+    seen: set[tuple[str, str]] = set()
+    for index, value in enumerate(features_raw):
         if not isinstance(value, dict):
-            raise ValueError(f"eval.candidates.{name} must be a mapping")
-        candidate_raw = {str(k): v for k, v in value.items()}
-        candidates[str(name)] = _features(
-            _mapping(candidate_raw, "features", default={"use": ["sdf", "contour"]})
+            raise ValueError(f"eval.features[{index}] must be a mapping")
+        item = {str(k): v for k, v in value.items()}
+        target_shape = cast(TargetShapeName, str(item.get("target_shape", "")))
+        method = cast(TransformEvalMethodName, str(item.get("method", "")))
+        code_name = resolve_transform_eval_code_name(target_shape, method)
+        key = (target_shape, method)
+        if key in seen:
+            raise ValueError(
+                "duplicate transform-eval feature: "
+                f"target_shape={target_shape!r}, method={method!r}"
+            )
+        seen.add(key)
+        features.append(
+            TransformEvalFeatureSpec(
+                target_shape=target_shape,
+                method=method,
+                code_name=cast(FeatureName, code_name),
+            )
         )
-    return candidates
+    return tuple(features)
 
 
 def load_transform_eval_spec_yaml(path: str | Path) -> TransformEvalSpec:
@@ -255,7 +282,7 @@ def load_transform_eval_spec_yaml(path: str | Path) -> TransformEvalSpec:
         task="transform-eval",
         index=str(input_raw.get("index", "")),
         view=_view(_mapping(raw, "view", default={})),
-        candidates=_transform_eval_candidates(raw),
+        features=_transform_eval_features(raw),
         output=_output(_mapping(raw, "output")),
         process=_process(_mapping(raw, "process", default={})),
     )
@@ -266,7 +293,7 @@ def load_compare_spec_yaml(path: str | Path) -> CompareSpec:
     _require_task(raw, "compare")
     input_raw = _mapping(raw, "input")
     features = _features(_mapping(raw, "features", default={"use": ["sdf", "contour"]}))
-    _require_allowed_features(features, task="compare", allowed={"sdf", "contour"})
+    _require_allowed_features(features, task="compare", allowed=COMPARE_FEATURE_NAMES)
     metrics = _metrics(
         _mapping(raw, "metrics", default={"use": ["cd", "sdf", "iou"]})
     )
@@ -289,7 +316,7 @@ def load_batch_compare_spec_yaml(path: str | Path) -> BatchCompareSpec:
     _require_task(raw, "batch-compare")
     input_raw = _mapping(raw, "input")
     features = _features(_mapping(raw, "features", default={"use": ["sdf", "contour"]}))
-    _require_allowed_features(features, task="batch-compare", allowed={"sdf", "contour"})
+    _require_allowed_features(features, task="batch-compare", allowed=COMPARE_FEATURE_NAMES)
     metrics = _metrics(
         _mapping(raw, "metrics", default={"use": ["cd", "sdf", "iou"]})
     )
@@ -306,33 +333,33 @@ def load_batch_compare_spec_yaml(path: str | Path) -> BatchCompareSpec:
     )
 
 
-def _compare_eval_candidates(
+def _compare_eval_metric_sets(
     raw: dict[str, Any],
     *,
     view: ViewSpec,
-) -> dict[str, CompareEvalCandidateSpec]:
+) -> dict[str, CompareEvalMetricSetSpec]:
     eval_raw = _mapping(raw, "eval")
-    candidates_raw = _mapping(eval_raw, "candidates")
-    candidates: dict[str, CompareEvalCandidateSpec] = {}
-    for name, value in candidates_raw.items():
+    metric_sets_raw = _mapping(eval_raw, "metric_sets")
+    metric_sets: dict[str, CompareEvalMetricSetSpec] = {}
+    for name, value in metric_sets_raw.items():
         if not isinstance(value, dict):
-            raise ValueError(f"eval.candidates.{name} must be a mapping")
-        candidate_raw = {str(k): v for k, v in value.items()}
+            raise ValueError(f"eval.metric_sets.{name} must be a mapping")
+        metric_set_raw = {str(k): v for k, v in value.items()}
         features = _features(
-            _mapping(candidate_raw, "features", default={"use": ["sdf", "contour"]})
+            _mapping(metric_set_raw, "features", default={"use": ["sdf", "contour"]})
         )
         _require_allowed_features(
             features,
             task="compare-eval",
-            allowed={"sdf", "contour"},
+            allowed=COMPARE_FEATURE_NAMES,
         )
         metrics = _metrics(
-            _mapping(candidate_raw, "metrics", default={"use": ["cd", "sdf", "iou"]})
+            _mapping(metric_set_raw, "metrics", default={"use": ["cd", "sdf", "iou"]})
         )
         _require_metric_feature_dependencies(features, metrics)
         _require_cd_gauge_compatible(view, metrics)
-        candidates[str(name)] = CompareEvalCandidateSpec(features=features, metrics=metrics)
-    return candidates
+        metric_sets[str(name)] = CompareEvalMetricSetSpec(features=features, metrics=metrics)
+    return metric_sets
 
 
 def load_compare_eval_spec_yaml(path: str | Path) -> CompareEvalSpec:
@@ -344,6 +371,6 @@ def load_compare_eval_spec_yaml(path: str | Path) -> CompareEvalSpec:
         task="compare-eval",
         index=str(input_raw.get("index", "")),
         view=view,
-        candidates=_compare_eval_candidates(raw, view=view),
+        metric_sets=_compare_eval_metric_sets(raw, view=view),
         output=_output(_mapping(raw, "output")),
     )

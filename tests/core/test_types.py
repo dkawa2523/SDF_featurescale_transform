@@ -7,7 +7,7 @@ import pytest
 
 from wafergeo.core.grid import GridSpec
 from wafergeo.core.meta import Meta
-from wafergeo.core.types import MaterialSpec, PointCloud, TSDFVolume
+from wafergeo.core.types import MaterialSpec, TSDFVolume
 
 
 def _meta() -> Meta:
@@ -134,30 +134,5 @@ def test_tsdf_volume_present_mask_validation() -> None:
             mu_nm=10.0,
             tsdf=tsdf,
             present_mask=np.array([1, 2, 0], dtype=np.uint8),
-            meta=_meta(),
-        )
-
-
-def test_pointcloud_validates_point_is_exposed() -> None:
-    points = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=np.float32)
-    normals = np.array([[0.0, 0.0, 1.0], [0.0, 1.0, 0.0]], dtype=np.float32)
-    pair_code = np.array([0, 1], dtype=np.int32)
-    point_is_exposed = np.array([True, False], dtype=bool)
-
-    cloud = PointCloud(
-        points=points,
-        normals=normals,
-        pair_code=pair_code,
-        point_is_exposed=point_is_exposed,
-        meta=_meta(),
-    )
-    assert cloud.point_is_exposed.shape == (2,)
-
-    with pytest.raises(ValueError):
-        PointCloud(
-            points=points,
-            normals=normals,
-            pair_code=pair_code,
-            point_is_exposed=np.array([1, 2], dtype=np.int32),
             meta=_meta(),
         )

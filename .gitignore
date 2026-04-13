@@ -14,5 +14,3 @@ site/
 # Local temporary artifacts
 tmp_*/
 outputs/
-dataset/ataset_3d_test2_eval_npz/
-dataset/ataset_3d_test2_eval_vti/

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import csv
 import re
@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from wafergeo.compare.batch_runner import compare_spec_from_index_row, read_compare_index
-from wafergeo.compare.eval_figures import write_compare_eval_figures
+from wafergeo.compare.compare_eval_figures import write_compare_eval_figures
 from wafergeo.compare.loader import is_label_input_kind
 from wafergeo.compare.runner import (
     PreparedTarget,
@@ -19,7 +19,7 @@ from wafergeo.compare.runner import (
 from wafergeo.compare.runtime_io import resolve_path, write_json, write_run_info
 from wafergeo.compare.schema import (
     BatchCompareSpec,
-    CompareEvalCandidateSpec,
+    CompareEvalMetricSetSpec,
     CompareSpec,
     OutputSpec,
     ViewSpec,
@@ -27,10 +27,10 @@ from wafergeo.compare.schema import (
 )
 
 
-def _safe_candidate_id(value: str) -> str:
+def _safe_metric_set_id(value: str) -> str:
     safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip()).strip("._-")
     if not safe or safe in {".", ".."}:
-        raise ValueError(f"invalid compare-eval candidate name: {value!r}")
+        raise ValueError(f"invalid compare-eval metric_set name: {value!r}")
     return safe
 
 
@@ -43,16 +43,16 @@ def _write_csv(path: Path, rows: list[dict[str, object]], fieldnames: list[str])
 
 
 def _clean_eval_output_dirs(out_dir: Path) -> None:
-    for name in ("candidates", "figures"):
+    for name in ("metric_sets", "figures"):
         path = out_dir / name
         if path.exists():
             shutil.rmtree(path)
 
 
-def _candidate_batch_spec(
+def _metric_set_batch_spec(
     *,
     index: str,
-    candidate: CompareEvalCandidateSpec,
+    metric_set: CompareEvalMetricSetSpec,
     output_dir: Path,
     view: ViewSpec,
 ) -> BatchCompareSpec:
@@ -60,8 +60,8 @@ def _candidate_batch_spec(
         task="batch-compare",
         index=index,
         view=view,
-        features=candidate.features,
-        metrics=candidate.metrics,
+        features=metric_set.features,
+        metrics=metric_set.metrics,
         output=OutputSpec(
             dir=str(output_dir),
             difference_image=False,
@@ -95,48 +95,61 @@ def _as_float(value: object) -> float:
     raise TypeError(f"expected numeric value, got {type(value).__name__}")
 
 
-def _candidate_summary_rows(
+def _metric_family(metric: str) -> str:
+    if metric == "iou":
+        return "shape_overlap"
+    if metric == "sdf":
+        return "shape_distance"
+    if metric == "sdf_band":
+        return "boundary_band_distance"
+    if metric == "sdf_material":
+        return "material_distance"
+    if metric in {"cd", "chamfer", "corner", "profile", "topology"}:
+        return "geometry_measure"
+    return "other"
+
+
+def _metric_set_summary_rows(
     *,
-    candidate_rows: list[dict[str, object]],
+    metric_set_rows: list[dict[str, object]],
     metric_rows: list[dict[str, object]],
     ranking_rows: list[dict[str, object]],
 ) -> list[dict[str, object]]:
     groups: dict[str, list[dict[str, object]]] = {}
-    for row in candidate_rows:
-        groups.setdefault(str(row["candidate"]), []).append(row)
+    for row in metric_set_rows:
+        groups.setdefault(str(row["metric_set"]), []).append(row)
 
-    skipped_by_candidate: dict[str, int] = {}
+    skipped_by_metric_set: dict[str, int] = {}
     for row in metric_rows:
         if row.get("status") == "SKIPPED":
-            candidate = str(row["candidate"])
-            skipped_by_candidate[candidate] = skipped_by_candidate.get(candidate, 0) + 1
+            metric_set = str(row["metric_set"])
+            skipped_by_metric_set[metric_set] = skipped_by_metric_set.get(metric_set, 0) + 1
 
-    rank_deltas_by_candidate: dict[str, list[int]] = {}
+    rank_deltas_by_metric_set: dict[str, list[int]] = {}
     changed_rank_counts: dict[str, int] = {}
     for row in ranking_rows:
-        candidate = str(row["candidate"])
-        rank_delta = row.get("rank_delta")
-        if rank_delta == "":
+        metric_set = str(row["metric_set"])
+        ranking_shift = row.get("ranking_shift")
+        if ranking_shift == "":
             continue
-        delta = abs(int(str(rank_delta)))
-        rank_deltas_by_candidate.setdefault(candidate, []).append(delta)
+        delta = abs(int(str(ranking_shift)))
+        rank_deltas_by_metric_set.setdefault(metric_set, []).append(delta)
         if delta != 0:
-            changed_rank_counts[candidate] = changed_rank_counts.get(candidate, 0) + 1
+            changed_rank_counts[metric_set] = changed_rank_counts.get(metric_set, 0) + 1
 
     summaries: list[dict[str, object]] = []
-    for candidate, rows in groups.items():
-        normalized = [_as_float(row["normalized_total_score"]) for row in rows]
-        total = [_as_float(row["total_score"]) for row in rows]
+    for metric_set, rows in groups.items():
+        comparison_loss = [_as_float(row["comparison_loss"]) for row in rows]
+        raw_loss = [_as_float(row["raw_loss"]) for row in rows]
         runtime = [_as_float(row["runtime_sec"]) for row in rows]
         partial_count = sum(1 for row in rows if row.get("status") == "PARTIAL")
         first = rows[0]
-        best = min(rows, key=lambda row: _as_float(row["normalized_total_score"]))
-        abs_rank_deltas = rank_deltas_by_candidate.get(candidate, [])
+        best = min(rows, key=lambda row: _as_float(row["comparison_loss"]))
+        abs_rank_deltas = rank_deltas_by_metric_set.get(metric_set, [])
         summaries.append(
             {
-                "candidate": candidate,
+                "metric_set": metric_set,
                 "status": "OK" if partial_count == 0 else "PARTIAL",
-                "objective_name": "normalized_total_score",
                 "direction": "minimize",
                 "features": first.get("features", ""),
                 "metrics": first.get("metrics", ""),
@@ -144,22 +157,20 @@ def _candidate_summary_rows(
                 "ok_case_count": len(rows) - partial_count,
                 "partial_case_count": partial_count,
                 "best_case_id": best.get("case_id", ""),
-                "best_objective": best.get("objective", ""),
-                "best_normalized_total_score": best.get("normalized_total_score", ""),
-                "mean_objective": float(np.mean(normalized)),
-                "mean_normalized_total_score": float(np.mean(normalized)),
-                "std_normalized_total_score": _std(normalized),
-                "min_normalized_total_score": float(np.min(normalized)),
-                "max_normalized_total_score": float(np.max(normalized)),
-                "mean_total_score": float(np.mean(total)),
-                "std_total_score": _std(total),
-                "mean_abs_rank_delta": (
+                "best_comparison_loss": best.get("comparison_loss", ""),
+                "mean_comparison_loss": float(np.mean(comparison_loss)),
+                "case_separation": _std(comparison_loss),
+                "min_comparison_loss": float(np.min(comparison_loss)),
+                "max_comparison_loss": float(np.max(comparison_loss)),
+                "mean_raw_loss": float(np.mean(raw_loss)),
+                "std_raw_loss": _std(raw_loss),
+                "ranking_shift_mean": (
                     float(np.mean(abs_rank_deltas)) if abs_rank_deltas else 0.0
                 ),
-                "max_abs_rank_delta": int(max(abs_rank_deltas)) if abs_rank_deltas else 0,
-                "changed_rank_count": changed_rank_counts.get(candidate, 0),
+                "ranking_shift_max": int(max(abs_rank_deltas)) if abs_rank_deltas else 0,
+                "changed_rank_count": changed_rank_counts.get(metric_set, 0),
                 "mean_runtime_sec": float(np.mean(runtime)),
-                "skipped_metric_count": skipped_by_candidate.get(candidate, 0),
+                "skipped_metric_count": skipped_by_metric_set.get(metric_set, 0),
             }
         )
     return summaries
@@ -168,22 +179,24 @@ def _candidate_summary_rows(
 def _metric_summary_rows(metric_rows: list[dict[str, object]]) -> list[dict[str, object]]:
     groups: dict[tuple[str, str], list[dict[str, object]]] = {}
     for row in metric_rows:
-        groups.setdefault((str(row["candidate"]), str(row["name"])), []).append(row)
+        groups.setdefault((str(row["metric_set"]), str(row["name"])), []).append(row)
 
     summaries: list[dict[str, object]] = []
-    for (candidate, metric), rows in sorted(groups.items()):
+    for (metric_set, metric), rows in sorted(groups.items()):
         losses = [_as_float(row["loss"]) for row in rows]
         normalized_losses = [_as_float(row["normalized_loss"]) for row in rows]
         values = [_as_float(row["value"]) for row in rows]
         summaries.append(
             {
-                "candidate": candidate,
+                "metric_set": metric_set,
+                "metric_family": _metric_family(metric),
                 "metric": metric,
                 "case_count": len(rows),
-                "mean_loss": float(np.mean(losses)),
-                "std_loss": _std(losses),
-                "min_loss": float(np.min(losses)),
-                "max_loss": float(np.max(losses)),
+                "mean_metric_loss": float(np.mean(normalized_losses)),
+                "mean_raw_metric_loss": float(np.mean(losses)),
+                "std_raw_metric_loss": _std(losses),
+                "min_raw_metric_loss": float(np.min(losses)),
+                "max_raw_metric_loss": float(np.max(losses)),
                 "mean_normalized_loss": float(np.mean(normalized_losses)),
                 "mean_value": float(np.mean(values)),
                 "skipped_count": sum(1 for row in rows if row.get("status") == "SKIPPED"),
@@ -193,38 +206,38 @@ def _metric_summary_rows(metric_rows: list[dict[str, object]]) -> list[dict[str,
 
 
 def _ranking_consistency_rows(case_rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    candidate_order: list[str] = []
+    metric_set_order: list[str] = []
     groups: dict[str, list[dict[str, object]]] = {}
     for row in case_rows:
-        candidate = str(row["candidate"])
-        if candidate not in groups:
-            candidate_order.append(candidate)
-        groups.setdefault(candidate, []).append(row)
-    if not candidate_order:
+        metric_set = str(row["metric_set"])
+        if metric_set not in groups:
+            metric_set_order.append(metric_set)
+        groups.setdefault(metric_set, []).append(row)
+    if not metric_set_order:
         return []
 
-    ranks_by_candidate: dict[str, dict[str, int]] = {}
-    for candidate, rows in groups.items():
-        ordered = sorted(rows, key=lambda item: _as_float(item["normalized_total_score"]))
-        ranks_by_candidate[candidate] = {
+    ranks_by_metric_set: dict[str, dict[str, int]] = {}
+    for metric_set, rows in groups.items():
+        ordered = sorted(rows, key=lambda item: _as_float(item["comparison_loss"]))
+        ranks_by_metric_set[metric_set] = {
             str(row["case_id"]): rank for rank, row in enumerate(ordered, start=1)
         }
 
-    baseline = candidate_order[0]
-    baseline_ranks = ranks_by_candidate[baseline]
+    baseline = metric_set_order[0]
+    baseline_ranks = ranks_by_metric_set[baseline]
     consistency_rows: list[dict[str, object]] = []
-    for candidate in candidate_order:
-        for case_id, candidate_rank in sorted(ranks_by_candidate[candidate].items()):
+    for metric_set in metric_set_order:
+        for case_id, metric_set_rank in sorted(ranks_by_metric_set[metric_set].items()):
             baseline_rank = baseline_ranks.get(case_id)
             consistency_rows.append(
                 {
-                    "baseline_candidate": baseline,
-                    "candidate": candidate,
+                    "baseline_metric_set": baseline,
+                    "metric_set": metric_set,
                     "case_id": case_id,
                     "baseline_rank": baseline_rank,
-                    "candidate_rank": candidate_rank,
-                    "rank_delta": (
-                        int(candidate_rank) - int(baseline_rank)
+                    "metric_set_rank": metric_set_rank,
+                    "ranking_shift": (
+                        int(metric_set_rank) - int(baseline_rank)
                         if baseline_rank is not None
                         else ""
                     ),
@@ -233,16 +246,77 @@ def _ranking_consistency_rows(case_rows: list[dict[str, object]]) -> list[dict[s
     return consistency_rows
 
 
+def _axis_agreement_rows(case_rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    metric_set_order: list[str] = []
+    by_axis: dict[str, dict[str, dict[str, object]]] = {}
+    for row in case_rows:
+        axis = str(row["metric_set"])
+        if axis not in by_axis:
+            metric_set_order.append(axis)
+        by_axis.setdefault(axis, {})[str(row["case_id"])] = row
+
+    ranks_by_axis: dict[str, dict[str, int]] = {}
+    for axis in metric_set_order:
+        ordered = sorted(
+            by_axis[axis].values(),
+            key=lambda item: _as_float(item["comparison_loss"]),
+        )
+        ranks_by_axis[axis] = {
+            str(row["case_id"]): rank for rank, row in enumerate(ordered, start=1)
+        }
+
+    rows: list[dict[str, object]] = []
+    for left_index, left_axis in enumerate(metric_set_order):
+        for right_axis in metric_set_order[left_index + 1 :]:
+            case_ids = sorted(set(by_axis[left_axis]).intersection(by_axis[right_axis]))
+            left_losses = np.asarray(
+                [_as_float(by_axis[left_axis][case_id]["comparison_loss"]) for case_id in case_ids],
+                dtype=np.float64,
+            )
+            right_losses = np.asarray(
+                [
+                    _as_float(by_axis[right_axis][case_id]["comparison_loss"])
+                    for case_id in case_ids
+                ],
+                dtype=np.float64,
+            )
+            if len(case_ids) >= 2 and np.std(left_losses) > 0.0 and np.std(right_losses) > 0.0:
+                loss_correlation: float | str = float(np.corrcoef(left_losses, right_losses)[0, 1])
+            elif left_losses.size and np.allclose(left_losses, right_losses):
+                loss_correlation = 1.0
+            else:
+                loss_correlation = ""
+
+            rank_shifts = [
+                abs(ranks_by_axis[left_axis][case_id] - ranks_by_axis[right_axis][case_id])
+                for case_id in case_ids
+            ]
+            max_possible_shift = max(len(case_ids) - 1, 1)
+            mean_abs_rank_shift = float(np.mean(rank_shifts)) if rank_shifts else 0.0
+            rank_agreement = max(0.0, 1.0 - mean_abs_rank_shift / max_possible_shift)
+            rows.append(
+                {
+                    "axis_a": left_axis,
+                    "axis_b": right_axis,
+                    "case_count": len(case_ids),
+                    "loss_correlation": loss_correlation,
+                    "rank_agreement": rank_agreement,
+                    "mean_abs_rank_shift": mean_abs_rank_shift,
+                    "max_abs_rank_shift": max(rank_shifts) if rank_shifts else 0,
+                    "changed_rank_count": sum(1 for value in rank_shifts if value != 0),
+                }
+            )
+    return rows
+
+
 def _case_score_fieldnames(metric_names: list[str]) -> list[str]:
     fields = [
-        "candidate",
+        "metric_set",
         "case_id",
         "status",
-        "objective",
-        "objective_name",
         "direction",
-        "normalized_total_score",
-        "total_score",
+        "comparison_loss",
+        "raw_loss",
         "runtime_sec",
         "features",
         "metrics",
@@ -276,25 +350,25 @@ def run_compare_eval_from_config(config_path: str | Path) -> dict[str, object]:
     target_cache: dict[tuple[object, ...], PreparedTarget] = {}
     target_cache_hits = 0
     metric_names: list[str] = []
-    seen_candidate_ids: dict[str, str] = {}
+    seen_metric_set_ids: dict[str, str] = {}
 
-    for candidate_name, candidate in spec.candidates.items():
-        candidate_id = _safe_candidate_id(candidate_name)
-        existing_name = seen_candidate_ids.get(candidate_id)
+    for metric_set_name, metric_set in spec.metric_sets.items():
+        metric_set_id = _safe_metric_set_id(metric_set_name)
+        existing_name = seen_metric_set_ids.get(metric_set_id)
         if existing_name is not None:
             raise ValueError(
-                "compare-eval candidate names collide after path sanitization: "
-                f"{existing_name!r} and {candidate_name!r} -> {candidate_id!r}"
+                "compare-eval metric_set names collide after path sanitization: "
+                f"{existing_name!r} and {metric_set_name!r} -> {metric_set_id!r}"
             )
-        seen_candidate_ids[candidate_id] = candidate_name
-        candidate_dir = out_dir / "candidates" / candidate_id
-        batch_spec = _candidate_batch_spec(
+        seen_metric_set_ids[metric_set_id] = metric_set_name
+        metric_set_dir = out_dir / "metric_sets" / metric_set_id
+        batch_spec = _metric_set_batch_spec(
             index=str(index_path),
-            candidate=candidate,
-            output_dir=candidate_dir,
+            metric_set=metric_set,
+            output_dir=metric_set_dir,
             view=spec.view,
         )
-        for metric_name in candidate.metrics.use:
+        for metric_name in metric_set.metrics.use:
             if metric_name not in metric_names:
                 metric_names.append(metric_name)
 
@@ -307,7 +381,7 @@ def run_compare_eval_from_config(config_path: str | Path) -> dict[str, object]:
             case_row["target_path"] = str(
                 resolve_path(case_row["target_path"], base_dir=index_dir)
             )
-            case_out = candidate_dir / "cases" / case_id
+            case_out = metric_set_dir / "cases" / case_id
             compare_spec = compare_spec_from_index_row(
                 case_row,
                 batch_spec=batch_spec,
@@ -342,23 +416,21 @@ def run_compare_eval_from_config(config_path: str | Path) -> dict[str, object]:
             skipped = [metric.name for metric in score.metrics if metric.status == "SKIPPED"]
 
             case_row_out: dict[str, object] = {
-                "candidate": candidate_name,
+                "metric_set": metric_set_name,
                 "case_id": case_id,
                 "status": "OK" if not skipped else "PARTIAL",
-                "objective": score.normalized_total_score,
-                "objective_name": "normalized_total_score",
                 "direction": "minimize",
-                "normalized_total_score": score.normalized_total_score,
-                "total_score": score.total_score,
+                "comparison_loss": score.normalized_total_score,
+                "raw_loss": score.total_score,
                 "runtime_sec": runtime_sec,
-                "features": "|".join(candidate.features.use),
-                "metrics": "|".join(candidate.metrics.use),
+                "features": "|".join(metric_set.features.use),
+                "metrics": "|".join(metric_set.metrics.use),
                 "skipped_metrics": "|".join(skipped),
             }
             for metric in score.metrics:
                 metric_rows.append(
                     {
-                        "candidate": candidate_name,
+                        "metric_set": metric_set_name,
                         "case_id": case_id,
                         **metric.to_dict(),
                     }
@@ -370,20 +442,20 @@ def run_compare_eval_from_config(config_path: str | Path) -> dict[str, object]:
             case_rows.append(case_row_out)
 
     ranking_rows = _ranking_consistency_rows(case_rows)
-    candidate_rows = _candidate_summary_rows(
-        candidate_rows=case_rows,
+    axis_agreement_rows = _axis_agreement_rows(case_rows)
+    metric_set_rows = _metric_set_summary_rows(
+        metric_set_rows=case_rows,
         metric_rows=metric_rows,
         ranking_rows=ranking_rows,
     )
     metric_summary_rows = _metric_summary_rows(metric_rows)
 
     _write_csv(
-        out_dir / "candidate_summary.csv",
-        candidate_rows,
+        out_dir / "metric_set_summary.csv",
+        metric_set_rows,
         [
-            "candidate",
+            "metric_set",
             "status",
-            "objective_name",
             "direction",
             "features",
             "metrics",
@@ -391,17 +463,15 @@ def run_compare_eval_from_config(config_path: str | Path) -> dict[str, object]:
             "ok_case_count",
             "partial_case_count",
             "best_case_id",
-            "best_objective",
-            "best_normalized_total_score",
-            "mean_objective",
-            "mean_normalized_total_score",
-            "std_normalized_total_score",
-            "min_normalized_total_score",
-            "max_normalized_total_score",
-            "mean_total_score",
-            "std_total_score",
-            "mean_abs_rank_delta",
-            "max_abs_rank_delta",
+            "best_comparison_loss",
+            "mean_comparison_loss",
+            "case_separation",
+            "min_comparison_loss",
+            "max_comparison_loss",
+            "mean_raw_loss",
+            "std_raw_loss",
+            "ranking_shift_mean",
+            "ranking_shift_max",
             "changed_rank_count",
             "mean_runtime_sec",
             "skipped_metric_count",
@@ -412,14 +482,15 @@ def run_compare_eval_from_config(config_path: str | Path) -> dict[str, object]:
         out_dir / "metric_summary.csv",
         metric_summary_rows,
         [
-            "candidate",
+            "metric_set",
+            "metric_family",
             "metric",
             "case_count",
-            "mean_loss",
-            "std_loss",
-            "min_loss",
-            "max_loss",
-            "mean_normalized_loss",
+            "mean_metric_loss",
+            "mean_raw_metric_loss",
+            "std_raw_metric_loss",
+            "min_raw_metric_loss",
+            "max_raw_metric_loss",
             "mean_value",
             "skipped_count",
         ],
@@ -428,32 +499,47 @@ def run_compare_eval_from_config(config_path: str | Path) -> dict[str, object]:
         out_dir / "ranking_consistency.csv",
         ranking_rows,
         [
-            "baseline_candidate",
-            "candidate",
+            "baseline_metric_set",
+            "metric_set",
             "case_id",
             "baseline_rank",
-            "candidate_rank",
-            "rank_delta",
+            "metric_set_rank",
+            "ranking_shift",
         ],
     )
-    figures_manifest = write_compare_eval_figures(
+    _write_csv(
+        out_dir / "axis_agreement.csv",
+        axis_agreement_rows,
+        [
+            "axis_a",
+            "axis_b",
+            "case_count",
+            "loss_correlation",
+            "rank_agreement",
+            "mean_abs_rank_shift",
+            "max_abs_rank_shift",
+            "changed_rank_count",
+        ],
+    )
+    figures_index = write_compare_eval_figures(
         out_dir=out_dir,
         spec=spec,
         index_rows=index_rows,
         index_dir=index_dir,
         case_rows=case_rows,
-        candidate_rows=candidate_rows,
+        metric_set_rows=metric_set_rows,
         metric_summary_rows=metric_summary_rows,
         ranking_rows=ranking_rows,
+        axis_agreement_rows=axis_agreement_rows,
     )
     summary: dict[str, object] = {
         "task": "compare-eval",
         "status": "OK",
         "case_count": len(index_rows),
-        "candidate_count": len(spec.candidates),
-        "candidates": list(spec.candidates),
-        "baseline_candidate": next(iter(spec.candidates), ""),
-        "figures": figures_manifest,
+        "metric_set_count": len(spec.metric_sets),
+        "metric_sets": list(spec.metric_sets),
+        "baseline_metric_set": next(iter(spec.metric_sets), ""),
+        "figures": figures_index,
         "target_cache": {
             "entries": len(target_cache),
             "hits": target_cache_hits,
@@ -468,3 +554,4 @@ def run_compare_eval_from_config(config_path: str | Path) -> dict[str, object]:
         inputs={"index": str(index_path)},
     )
     return summary
+

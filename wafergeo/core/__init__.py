@@ -16,8 +16,6 @@ from wafergeo.core.registry import (
 from wafergeo.core.types import (
     LabelVolume,
     MaterialSpec,
-    MeshGeom,
-    PointCloud,
     TSDFVolume,
 )
 
@@ -29,8 +27,6 @@ __all__ = [
     "MaterialSpec",
     "LabelVolume",
     "TSDFVolume",
-    "MeshGeom",
-    "PointCloud",
     "Registry",
     "sdf_backend_registry",
     "register_sdf_engine",

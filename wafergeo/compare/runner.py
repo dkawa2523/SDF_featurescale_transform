@@ -21,10 +21,11 @@ from wafergeo.compare.loader import (
 )
 from wafergeo.compare.output_artifacts import (
     write_cd_profile_png,
-    write_label_preview_png,
+    write_label_image_png,
     write_material_confusion_outputs,
     write_per_material_sdf_csv,
 )
+from wafergeo.compare.output_cleanup import clean_compare_output_dir, clean_transform_output_dir
 from wafergeo.compare.render import (
     difference_summary,
     write_difference_legend_json,
@@ -77,6 +78,8 @@ def run_transform_spec(
     write_run_metadata: bool,
 ) -> dict[str, object]:
     out_dir = output_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    clean_transform_output_dir(out_dir)
     features_dir = out_dir / "features"
     sim_path = resolve_path(spec.simulation.path, base_dir=base_dir)
     label = load_simulation_label(spec.simulation.kind, sim_path, void_id=spec.simulation.void_id)
@@ -113,6 +116,7 @@ def run_transform_spec(
         "features": written,
         "feature_summary": "feature_summary.json",
         "label_summary": "label_summary.json",
+        "input_shape_image": "input_shape.png",
         "output_dir": str(out_dir),
     }
     if reference_path is not None and spec.reference is not None:
@@ -131,8 +135,8 @@ def run_transform_spec(
         out_dir / "label_summary.json",
         label_summary_payload,
     )
-    write_label_preview_png(
-        out_dir / "preview.png",
+    write_label_image_png(
+        out_dir / "input_shape.png",
         view_feature.label2d,
         void_id=view_feature.void_id,
     )
@@ -388,6 +392,9 @@ def run_compare_spec(
     write_target_features: bool = True,
     write_case_outputs: bool = True,
 ) -> tuple[ScoreResult, dict[str, object]]:
+    if write_case_outputs:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        clean_compare_output_dir(output_dir)
     sim_path = resolve_path(spec.simulation.path, base_dir=base_dir)
     target_path = resolve_path(spec.target.path, base_dir=base_dir)
     sim_label, sim_feature = _simulation_label_and_feature(spec, sim_path)

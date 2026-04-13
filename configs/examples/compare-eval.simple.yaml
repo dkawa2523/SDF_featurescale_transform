@@ -1,4 +1,4 @@
-task: compare-eval
+﻿task: compare-eval
 
 input:
   index: ../../data/examples/compare_pairs.csv
@@ -8,24 +8,31 @@ view:
   depth_axis: y
 
 eval:
-  candidates:
-    primary:
+  metric_sets:
+    height_cd:
       features:
-        use: [sdf, contour]
+        use: [contour]
       metrics:
-        use: [cd, sdf, iou]
+        use: [cd]
 
-    material_diagnostic:
+    shape_distance:
       features:
         use: [sdf, contour]
       metrics:
-        use: [cd, sdf, iou, sdf_material]
+        use: [sdf, iou]
 
-    boundary_diagnostic:
+    material_distance:
       features:
         use: [sdf, contour]
       metrics:
-        use: [cd, sdf, iou, sdf_band]
+        use: [sdf, iou, sdf_material]
+
+    boundary_band_distance:
+      features:
+        use: [sdf, contour]
+      metrics:
+        use: [sdf, iou, sdf_band]
 
 output:
   dir: ../../outputs/example_compare_eval
+

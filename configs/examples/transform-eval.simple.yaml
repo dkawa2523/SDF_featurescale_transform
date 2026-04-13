@@ -8,18 +8,19 @@ view:
   depth_axis: y
 
 eval:
-  candidates:
-    raw:
-      features:
-        use: [sdf_raw]
-
-    tsdf:
-      features:
-        use: [tsdf_views]
-
-    material:
-      features:
-        use: [material_profile]
+  features:
+    - target_shape: full_shape
+      method: sdf
+    - target_shape: full_shape
+      method: multi_scale_tsdf
+    - target_shape: full_shape
+      method: udf
+    - target_shape: material_shape
+      method: sdf
+    - target_shape: material_shape
+      method: multi_scale_tsdf
+    - target_shape: material_shape
+      method: udf
 
 output:
   dir: ../../outputs/example_transform_eval

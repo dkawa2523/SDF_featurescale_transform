@@ -7,10 +7,10 @@ The public workflow is intentionally small:
 
 - `transform`: build features from one simulation label volume.
 - `batch-transform`: build features from multiple simulation label volumes.
-- `transform-eval`: compare feature-transform candidates on the same inputs.
+- `transform-eval`: evaluate transform features on the same inputs.
 - `compare`: compare one simulation label volume with one target.
 - `batch-compare`: compare multiple simulation-target pairs and write a ranking.
-- `compare-eval`: compare metric-set candidates on the same pairs.
+- `compare-eval`: compare evaluation axes on the same pairs.
 
 Downstream tools should consume the files written by this package instead of
 being built into the public workflow.
@@ -18,14 +18,14 @@ being built into the public workflow.
 ## Install
 
 ```powershell
-Set-Location C:\Users\user\Desktop\SDF_fs
+Set-Location <repo>
 py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -e ".[scipy,viz,dev]"
 ```
 
-Use `vtk` only when you need VTI or optional mesh tooling:
+Use `vtk` only when you need VTI input:
 
 ```powershell
 python -m pip install -e ".[scipy,vtk,viz,dev]"
@@ -140,7 +140,7 @@ dominate the ranking by default.
 `sdf_band` uses the existing SDF feature but scores only a default `10 nm`
 boundary neighborhood, which makes interface placement errors easier to see.
 Treat `chamfer`, `sdf_material`, `sdf_band`, `profile`, and `corner` as
-diagnostic additions rather than the first metric set to try.
+diagnostic additions rather than the first comparison axis to try.
 
 ## Outputs
 
@@ -189,32 +189,64 @@ loss, per-material loss, and projected material-boundary loss.
 `ranking_top.png` are lightweight derived outputs for quick inspection. CSV/JSON
 files remain the authoritative data.
 
+`transform-eval` writes:
+
+```text
+eval_feature_summary.csv
+eval_feature_signal.csv
+case_summary.csv
+case_variation_summary.csv
+feature_stats.csv
+material_coverage.csv
+summary.json
+figures/
+```
+
+Use it to compare feature methods for dataset creation. Read it as
+`target_shape x method`: full shape, material-specific shapes, and
+process-delta shape are separate target shapes. Material-interface and
+process-transition relation files are derived from SDF fields; they are not
+extra SDF methods. `feature_scores.csv` separates `shape_match`,
+`boundary_match`, `interface_match`, `transition_match`, `case_sensitivity`,
+and `data_cost`.
+`case_distance.csv` and `distance_correlation.csv` show how each explicit
+`target_shape` and `method` pair separates cases and whether two outputs carry
+similar information. PNG diagnostics are written under
+`figures/by_target_shape/<target_shape>/<method>/`; relation diagnostics are
+under `figures/by_target_shape/<target_shape>/relations/<relation>/`.
+
 `compare-eval` writes:
 
 ```text
-candidate_summary.csv
+metric_set_summary.csv
 case_scores.csv
 metric_summary.csv
 ranking_consistency.csv
+axis_agreement.csv
 summary.json
+figures/
 ```
 
-Use it to choose a metric/loss set. It reuses existing compare behavior and
-does not introduce new metrics or features. It keeps candidate case details in
-the root CSV files instead of writing per-case images or feature directories.
-`candidate_summary.csv` and `case_scores.csv` expose `objective`,
-`objective_name`, `direction`, and `status` so downstream tools can compare
-candidate loss sets without parsing nested score files.
+Use it to choose an evaluation axis for comparison. It reuses existing compare
+behavior and does not introduce new metrics or features. It keeps per-axis case
+details in the root CSV files and writes only small diagnostic figures under
+`figures/`.
+The YAML block is named `eval.metric_sets` for compatibility; each key in that
+block is an evaluation axis such as `height_cd` or `shape_distance`.
+`case_scores.csv` exposes `comparison_loss` for ranking or optimization.
+`metric_summary.csv` includes `metric_family` so shape-distance,
+boundary-band-distance, material-distance, shape-overlap, and geometry-measure
+losses are easy to read.
+`ranking_consistency.csv` exposes `ranking_shift` relative to the baseline
+evaluation axis.
+`axis_agreement.csv` and `figures/cd_vs_sdf_scatter.png` compare evaluation-axis
+`comparison_loss` values to show whether the SDF axis adds information beyond
+the conventional height-wise CD baseline.
 
 `_run/` contains `used_config.yaml` and `run_info.json` for debugging. It is not
 an input contract and can be deleted when not needed.
 
 ## Development
-
-Before asking Codex or another coding agent to change the repository, read
-`AGENTS.md` and `docs/WorkflowRoadmap.md`. The project should stay focused on
-the public workflows and avoid expanding YAML, runners, or output files without
-a clear user workflow.
 
 Keep public concepts simple:
 

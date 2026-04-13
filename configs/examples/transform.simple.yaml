@@ -11,21 +11,9 @@ view:
   depth_axis: y
 
 features:
-  use: [sdf, mesh, contour, slice]
-  # Optional 3D raw signed distance for downstream analysis or learning:
-  # use: [sdf_raw]
-  # Optional 3D TSDF views derived from sdf_raw:
-  # use: [tsdf_views]
-  # Optional 3D unsigned distance to the non-void boundary:
-  # use: [udf]
-  # Optional per-material 3D signed distance stack:
-  # use: [material_sdf]
-  # Optional lightweight material volume/profile summary:
-  # use: [material_profile]
-  # Optional process-aware delta features.
-  # Requires process.enabled: true and input.reference:
-  # use: [sdf_raw, material_profile, process_delta_sdf]
-  # use: [sdf_raw, material_profile, process_delta_profile]
+  use: [sdf_raw, tsdf_views, udf, material_sdf]
+  # For process-delta shape, add input.reference, set process.enabled: true,
+  # and use process_delta_sdf, process_delta_tsdf_views, or process_delta_udf.
 
 output:
   dir: ../../outputs/example_transform

@@ -6,13 +6,13 @@ use_directory_urls: true
 nav:
   - Home: index.md
   - Quickstart: Quickstart.md
+  - Terminology: Terminology.md
   - User Manual: UserManual.md
   - View: View.md
   - Scoring: Scoring.md
   - Eval Visualization: EvalVisualization.md
   - Developer Manual: DeveloperManual.md
   - Extension Guide: ExtensionGuide.md
-  - Workflow Roadmap: WorkflowRoadmap.md
 
 theme:
   name: mkdocs

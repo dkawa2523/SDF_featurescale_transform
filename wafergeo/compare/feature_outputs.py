@@ -8,78 +8,22 @@ from wafergeo.compare.features import (
     write_view_features,
 )
 from wafergeo.compare.transform_features import (
-    write_label_sdf_feature,
     write_label_sdf_raw_feature,
     write_label_udf_feature,
-    write_material_profile_feature,
+    write_material_interface_relation_feature,
     write_material_sdf_feature,
-    write_mesh_feature,
-    write_process_delta_profile_feature,
+    write_material_tsdf_views_feature,
+    write_material_udf_feature,
     write_process_delta_sdf_feature,
+    write_process_delta_tsdf_views_feature,
+    write_process_delta_udf_feature,
+    write_process_transition_relation_feature,
     write_transform_feature_summary,
     write_tsdf_views_feature,
 )
 from wafergeo.core.types import LabelVolume
 
 TransformWriter = Callable[[LabelVolume, ViewFeature, Path, LabelVolume | None], dict[str, str]]
-
-
-def _write_transform_sdf(
-    _label: LabelVolume,
-    view_feature: ViewFeature,
-    output_dir: Path,
-    _reference_label: LabelVolume | None,
-) -> dict[str, str]:
-    written = write_view_features(
-        feature=view_feature,
-        output_dir=output_dir,
-        prefix="simulation",
-        include_sdf=True,
-        include_contour=False,
-    )
-    return {"sdf": written["sdf"]}
-
-
-def _write_transform_contour(
-    _label: LabelVolume,
-    view_feature: ViewFeature,
-    output_dir: Path,
-    _reference_label: LabelVolume | None,
-) -> dict[str, str]:
-    written = write_view_features(
-        feature=view_feature,
-        output_dir=output_dir,
-        prefix="simulation",
-        include_sdf=False,
-        include_contour=True,
-    )
-    return {"contour": written["contour"]}
-
-
-def _write_transform_slice(
-    _label: LabelVolume,
-    view_feature: ViewFeature,
-    output_dir: Path,
-    _reference_label: LabelVolume | None,
-) -> dict[str, str]:
-    written = write_view_features(
-        feature=view_feature,
-        output_dir=output_dir,
-        prefix="simulation",
-        include_sdf=False,
-        include_contour=False,
-        include_slice=True,
-    )
-    return {"slice": written["slice"]}
-
-
-def _write_transform_sdf3d(
-    label: LabelVolume,
-    _view_feature: ViewFeature,
-    output_dir: Path,
-    _reference_label: LabelVolume | None,
-) -> dict[str, str]:
-    return {"sdf3d": write_label_sdf_feature(label, output_dir)}
 
 
 def _write_transform_sdf_raw(
@@ -115,31 +59,45 @@ def _write_transform_material_sdf(
     output_dir: Path,
     _reference_label: LabelVolume | None,
 ) -> dict[str, str]:
-    return {"material_sdf": write_material_sdf_feature(label, output_dir)}
+    return {
+        "material_sdf": write_material_sdf_feature(label, output_dir),
+        "material_interface_relation": write_material_interface_relation_feature(
+            label,
+            output_dir,
+        ),
+    }
 
 
-def _write_transform_material_profile(
+def _write_transform_material_tsdf_views(
     label: LabelVolume,
     _view_feature: ViewFeature,
     output_dir: Path,
     _reference_label: LabelVolume | None,
 ) -> dict[str, str]:
-    return write_material_profile_feature(label, output_dir)
+    return {"material_tsdf_views": write_material_tsdf_views_feature(label, output_dir)}
 
 
-def _write_transform_process_delta_profile(
+def _write_transform_material_udf(
     label: LabelVolume,
     _view_feature: ViewFeature,
     output_dir: Path,
-    reference_label: LabelVolume | None,
+    _reference_label: LabelVolume | None,
 ) -> dict[str, str]:
-    if reference_label is None:
-        raise ValueError("process_delta_profile requires input.reference")
-    return write_process_delta_profile_feature(
-        reference_label=reference_label,
-        final_label=label,
-        output_dir=output_dir,
-    )
+    return {"material_udf": write_material_udf_feature(label, output_dir)}
+
+
+def _write_transform_material_interface_relation(
+    label: LabelVolume,
+    _view_feature: ViewFeature,
+    output_dir: Path,
+    _reference_label: LabelVolume | None,
+) -> dict[str, str]:
+    return {
+        "material_interface_relation": write_material_interface_relation_feature(
+            label,
+            output_dir,
+        )
+    }
 
 
 def _write_transform_process_delta_sdf(
@@ -150,35 +108,82 @@ def _write_transform_process_delta_sdf(
 ) -> dict[str, str]:
     if reference_label is None:
         raise ValueError("process_delta_sdf requires input.reference")
-    return write_process_delta_sdf_feature(
+    written = write_process_delta_sdf_feature(
         reference_label=reference_label,
         final_label=label,
         output_dir=output_dir,
     )
+    written["process_transition_relation"] = write_process_transition_relation_feature(
+        reference_label=reference_label,
+        final_label=label,
+        output_dir=output_dir,
+    )
+    return written
 
 
-def _write_transform_mesh(
+def _write_transform_process_delta_tsdf_views(
     label: LabelVolume,
     _view_feature: ViewFeature,
     output_dir: Path,
-    _reference_label: LabelVolume | None,
+    reference_label: LabelVolume | None,
 ) -> dict[str, str]:
-    return write_mesh_feature(label, output_dir)
+    if reference_label is None:
+        raise ValueError("process_delta_tsdf_views requires input.reference")
+    return {
+        "process_delta_tsdf_views": write_process_delta_tsdf_views_feature(
+            reference_label=reference_label,
+            final_label=label,
+            output_dir=output_dir,
+        )
+    }
+
+
+def _write_transform_process_delta_udf(
+    label: LabelVolume,
+    _view_feature: ViewFeature,
+    output_dir: Path,
+    reference_label: LabelVolume | None,
+) -> dict[str, str]:
+    if reference_label is None:
+        raise ValueError("process_delta_udf requires input.reference")
+    return {
+        "process_delta_udf": write_process_delta_udf_feature(
+            reference_label=reference_label,
+            final_label=label,
+            output_dir=output_dir,
+        )
+    }
+
+
+def _write_transform_process_transition_relation(
+    label: LabelVolume,
+    _view_feature: ViewFeature,
+    output_dir: Path,
+    reference_label: LabelVolume | None,
+) -> dict[str, str]:
+    if reference_label is None:
+        raise ValueError("process_transition_relation requires input.reference")
+    return {
+        "process_transition_relation": write_process_transition_relation_feature(
+            reference_label=reference_label,
+            final_label=label,
+            output_dir=output_dir,
+        )
+    }
 
 
 TRANSFORM_FEATURE_WRITERS: dict[str, TransformWriter] = {
-    "sdf": _write_transform_sdf,
-    "contour": _write_transform_contour,
-    "slice": _write_transform_slice,
     "sdf_raw": _write_transform_sdf_raw,
-    "sdf3d": _write_transform_sdf3d,
     "tsdf_views": _write_transform_tsdf_views,
     "udf": _write_transform_udf,
     "material_sdf": _write_transform_material_sdf,
-    "material_profile": _write_transform_material_profile,
-    "process_delta_profile": _write_transform_process_delta_profile,
+    "material_tsdf_views": _write_transform_material_tsdf_views,
+    "material_udf": _write_transform_material_udf,
+    "material_interface_relation": _write_transform_material_interface_relation,
     "process_delta_sdf": _write_transform_process_delta_sdf,
-    "mesh": _write_transform_mesh,
+    "process_delta_tsdf_views": _write_transform_process_delta_tsdf_views,
+    "process_delta_udf": _write_transform_process_delta_udf,
+    "process_transition_relation": _write_transform_process_transition_relation,
 }
 
 
