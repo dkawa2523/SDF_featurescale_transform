@@ -1,48 +1,83 @@
-# Developer Manual
+# 開発者マニュアル
 
-Keep the code structure simple.
+コード構成はできるだけ単純に保ちます。
 
-## Responsibilities
+## 責務
+
+```mermaid
+flowchart TD
+  schema["schema_loader / schema_types<br/>YAML を parse"]
+  runner["runner<br/>path 解決と workflow 実行"]
+  loader["loaders<br/>NPZ, VTI, contour を読む"]
+  features["features<br/>feature outputs を書く"]
+  metrics["metrics<br/>loss を計算する"]
+  figures["figure writers<br/>診断出力"]
+  outputs["CSV / JSON / NPZ / PNG"]
+
+  schema --> runner
+  runner --> loader
+  runner --> features
+  runner --> metrics
+  runner --> figures
+  features --> outputs
+  metrics --> outputs
+  figures --> outputs
+```
 
 | layer | responsibility |
 | --- | --- |
-| schema | Load shallow YAML into typed specs. |
-| runner | Resolve paths, run workflow steps, collect rows, call writers. |
-| loader | Read input files into domain objects. |
-| feature | Convert geometry into CSV/JSON/NPZ feature outputs. |
-| metric | Compare simulation and target features. |
-| figure writer | Read existing outputs and write diagnostic PNG/CSV files. |
+| schema | shallow YAML を typed specs に読み込む |
+| runner | path を解決し、workflow steps を実行し、rows を集め、writers を呼ぶ |
+| loader | input files を domain objects に読む |
+| feature | geometry を CSV/JSON/NPZ feature outputs に変換する |
+| metric | simulation と target features を比較する |
+| figure writer | 既存 outputs を読み、diagnostic PNG/CSV を書く |
 
-Do not put loader parsing, feature math, or metric math directly into runners.
+runner に loader parsing、feature math、metric math を直接入れないでください。
+
+## Source Of Truth
+
+| concept | file |
+| --- | --- |
+| 対応している input kinds | `wafergeo/compare/schema_types.py` と loader maps |
+| transform feature naming | `wafergeo/compare/feature_taxonomy.py` |
+| compare metric requirements | `wafergeo/compare/metric_defs.py` |
+| runtime path rules | `wafergeo/compare/runtime_io.py` と runner files |
+| output cleanup policy | `wafergeo/compare/output_cleanup.py` |
+
+docs と code が食い違う場合は、まず source-of-truth file を直し、その後 docs を直します。
+feature が新しい method に見えるような synonym は増やさないでください。
 
 ## Naming
 
-Use [Terminology](Terminology.md) for feature wording. Code-specific feature
-names must map to:
+feature の表現は [用語](Terminology.md) に従います。
+code-specific feature names は次に mapping できる必要があります。
 
 ```text
 target_shape x method
 ```
 
-Keep that mapping in `wafergeo/compare/feature_taxonomy.py`. User-facing
-transform-eval docs should show only `target_shape`, `method`, and `code_name`.
+この mapping は `wafergeo/compare/feature_taxonomy.py` に置きます。
+user-facing な transform-eval docs では、`target_shape`, `method`, `code_name` だけを見せます。
 
-## Important Files
+## 重要なファイル
 
 | path | purpose |
 | --- | --- |
-| `wafergeo/compare/schema_types.py` | YAML-facing spec types. |
-| `wafergeo/compare/runner.py` | `transform` and `compare`. |
-| `wafergeo/compare/batch_transform_runner.py` | `batch-transform`. |
-| `wafergeo/compare/transform_eval_runner.py` | `transform-eval`. |
-| `wafergeo/compare/batch_runner.py` | `batch-compare`. |
-| `wafergeo/compare/compare_eval_runner.py` | `compare-eval`. |
-| `wafergeo/compare/feature_outputs.py` | Transform feature dispatch. |
-| `wafergeo/compare/feature_taxonomy.py` | Feature naming map. |
-| `wafergeo/compare/transform_eval_figures.py` | Transform-eval diagnostics. |
-| `wafergeo/compare/compare_eval_figures.py` | Compare-eval diagnostics. |
-| `wafergeo/compare/metric_defs.py` | Metric registry. |
-| `wafergeo/compare/loader.py` | Input loader dispatch. |
+| `wafergeo/compare/schema_types.py` | YAML-facing spec types |
+| `wafergeo/compare/runner.py` | `transform` と `compare` |
+| `wafergeo/compare/batch_transform_runner.py` | `batch-transform` |
+| `wafergeo/compare/transform_eval_runner.py` | `transform-eval` |
+| `wafergeo/compare/batch_runner.py` | `batch-compare` |
+| `wafergeo/compare/compare_eval_runner.py` | `compare-eval` |
+| `wafergeo/compare/feature_outputs.py` | transform feature dispatch |
+| `wafergeo/compare/feature_taxonomy.py` | feature naming map |
+| `wafergeo/compare/transform_eval_figures.py` | transform-eval diagnostics |
+| `wafergeo/compare/compare_eval_figures.py` | compare-eval diagnostics |
+| `wafergeo/compare/metric_defs.py` | metric registry |
+| `wafergeo/compare/label_loaders.py` | NPZ/VTI label loaders |
+| `wafergeo/compare/contour_loaders.py` | contour target loaders |
+| `wafergeo/compare/loader.py` | input loader dispatch |
 
 ## Checks
 
@@ -53,4 +88,4 @@ py -3.13 -m pytest -q
 py -3.13 -m mkdocs build --strict
 ```
 
-Do not commit `outputs/`, `site/`, caches, or temporary experiment files.
+`outputs/`, `site/`, caches、一時的な experiment files はコミットしません。

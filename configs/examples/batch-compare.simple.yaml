@@ -8,9 +8,17 @@ view:
   depth_axis: y
 
 features:
+  # Compare features are intermediate representations used by metrics.
+  # Required features by metric:
+  # - cd, chamfer, profile, corner: contour
+  # - sdf, sdf_band, sdf_material: sdf
+  # - iou, topology: no extra feature
   use: [sdf, contour]
 
 metrics:
+  # Metrics are losses computed from the features above.
+  # Example: feature "sdf" builds an SDF field; metric "sdf" compares
+  # simulation and target SDF fields.
   use: [cd, sdf, iou]
   # Optional diagnostics:
   # - chamfer: boundary point distance

@@ -1,23 +1,22 @@
-# User Manual
+# ユーザーマニュアル
 
-`wafergeo` converts geometry data into reusable feature files and compares
-simulation geometry with target geometry. External learning or optimization
-code should consume the CSV/JSON/NPZ outputs written here.
+`wafergeo` は geometry data を再利用可能な feature file へ変換し、
+simulation geometry と target geometry を比較します。
+外部の学習、解析、最適化コードは、ここで出力される CSV/JSON/NPZ を利用してください。
 
-## Inputs
+## 入力
 
-| kind | use |
+| kind | 用途 |
 | --- | --- |
-| `npz_label` | Label volume in an NPZ file. Use `labels` with shape `[X,Y,Z]`. Optional arrays: `spacing`, `origin`, `material_ids`. |
-| `vti_label` | Label volume stored in VTI. |
-| `contour_json` | Contour target for comparison metrics. |
+| `npz_label` | NPZ file 内の label volume。`labels` は shape `[X,Y,Z]`。任意 array は `spacing`, `origin`, `material_ids` など |
+| `vti_label` | VTI に保存された label volume。material array 名は `MaterialIds`, `material_id`, `MaterialId` のいずれか |
+| `contour_json` | compare metrics 用の contour target |
 
-If material id `0` is not void in your data, set `void_id` in YAML or the index
-CSV.
+CSV columns、`void_id`、NPZ/VTI の中身、例は [入力データ](InputData.md) を参照してください。
 
-## YAML Shape
+## YAML の形
 
-Keep YAML shallow.
+YAML は浅く保ちます。
 
 ```yaml
 task: transform
@@ -38,7 +37,7 @@ output:
   dir: outputs/example_transform
 ```
 
-Process-aware features need a reference label and `process.enabled`.
+process-aware feature には reference label と `process.enabled` が必要です。
 
 ```yaml
 task: transform
@@ -61,21 +60,88 @@ output:
   dir: outputs/process_delta
 ```
 
+`transform-eval` では、target shape と method を分けるために `eval.features` を使います。
+
+```yaml
+task: transform-eval
+
+input:
+  index: configs/runs/my_transform_cases.csv
+
+eval:
+  features:
+    - target_shape: full_shape
+      method: sdf
+    - target_shape: material_shape
+      method: sdf
+    - target_shape: process_delta_shape
+      method: multi_scale_tsdf
+
+process:
+  enabled: true
+
+output:
+  dir: outputs/my_transform_eval
+```
+
+`compare-eval` では互換性のため YAML field 名は `eval.metric_sets` ですが、
+各 key は evaluation axis として読みます。
+
+```yaml
+task: compare-eval
+
+input:
+  index: configs/runs/my_compare_pairs.csv
+
+eval:
+  metric_sets:
+    height_cd:
+      features:
+        use: [contour]
+      metrics:
+        use: [cd]
+    shape_distance:
+      features:
+        use: [sdf, contour]
+      metrics:
+        use: [sdf, iou]
+
+output:
+  dir: outputs/my_compare_eval
+```
+
 ## Workflows
 
-| workflow | use |
+```mermaid
+flowchart TD
+  oneFeature["1 つの geometry case"] --> transform["transform"]
+  manyFeature["複数 geometry case"] --> batchTransform["batch-transform"]
+  manyFeature --> transformEval["transform-eval"]
+
+  onePair["1 つの simulation-target pair"] --> compare["compare"]
+  manyPairs["複数 simulation-target pair"] --> batchCompare["batch-compare"]
+  manyPairs --> compareEval["compare-eval"]
+
+  transform --> featureFiles["feature files"]
+  batchTransform --> datasetFiles["dataset feature index"]
+  transformEval --> featureChoice["feature method の確認"]
+  compare --> objectiveFiles["objective と metric files"]
+  batchCompare --> rankingFiles["ranking files"]
+  compareEval --> axisChoice["evaluation axis の確認"]
+```
+
+| workflow | 用途 |
 | --- | --- |
-| `transform` | Convert one case into feature files. |
-| `batch-transform` | Convert many cases with the same feature list. |
-| `transform-eval` | Compare feature methods on many cases. |
-| `compare` | Compare one simulation with one target. |
-| `batch-compare` | Compare many simulation/target pairs. |
-| `compare-eval` | Compare evaluation axes on the same cases. |
+| `transform` | 1 case を feature file に変換する |
+| `batch-transform` | 同じ feature list で複数 case を変換する |
+| `transform-eval` | 複数 case 上で feature method を比較する |
+| `compare` | 1 つの simulation と 1 つの target を比較する |
+| `batch-compare` | 複数の simulation/target pair を比較する |
+| `compare-eval` | 同じ case 群で evaluation axis を比較する |
 
 ## Transform Features
 
-Read transform features with the terms defined in
-[Terminology](Terminology.md):
+transform features は [用語](Terminology.md) の定義に従って読みます。
 
 ```text
 target_shape x method, plus relation outputs derived from SDF stacks
@@ -95,71 +161,75 @@ target_shape x method, plus relation outputs derived from SDF stacks
 | `process_delta_udf` | `process_delta_shape` | `udf` |
 | `process_transition_relation` | `process_delta_shape` | relation |
 
-`material_sdf` and `process_delta_sdf` are not separate methods. They are SDF
-applied to different target shapes. Relation outputs describe material
-interfaces or reference-to-final material transitions.
+`material_sdf` と `process_delta_sdf` は別々の method ではありません。
+同じ SDF を異なる target shape に適用したものです。
+relation outputs は material interfaces や reference-to-final material transitions を表します。
 
 ## Transform-Eval Outputs
 
-`transform-eval` writes the normal eval CSV files plus diagnostic figures.
-Use the figure directory as a quick inspection layer, not as the source of truth.
+`transform-eval` は通常の eval CSV に加えて診断図を書き出します。
+figure directory は quick inspection layer であり、正本は CSV/JSON/NPZ です。
 
-Important figure files:
+重要な figure files:
 
-| output | use |
+| output | 用途 |
 | --- | --- |
-| `figures/input_shape_sections.png` | Original material sections for all cases. |
-| `figures/by_target_shape/<target_shape>/<method>/field.png` | Field report for one explicit target shape and method. |
-| `figures/by_target_shape/<target_shape>/<method>/scores.png` | Scores for that target shape and method. |
-| `figures/by_target_shape/<target_shape>/<method>/case_distance.png` | Case distance in that feature space. |
-| `figures/by_target_shape/<target_shape>/relations/<relation>/field.png` | Relation report derived from SDF fields. |
-| `figures/feature_scores.csv` | Machine-readable scores with separate `role`, `target_shape`, `method`, `relation`, and `code_name` columns. |
-| `figures/case_distance.csv` | Machine-readable case distances with separate `role`, `target_shape`, `method`, and `relation` columns. |
+| `figures/input_shape_sections.png` | 全 case の元 material sections |
+| `figures/by_target_shape/<target_shape>/<method>/field.png` | 明示的な target shape と method 1 組の field report |
+| `figures/by_target_shape/<target_shape>/<method>/scores.png` | その target shape/method の score |
+| `figures/by_target_shape/<target_shape>/<method>/case_distance.png` | その feature space での case distance |
+| `figures/by_target_shape/<target_shape>/relations/<relation>/field.png` | SDF fields から派生した relation report |
+| `figures/feature_scores.csv` | `role`, `target_shape`, `method`, `relation`, `code_name` を分けた machine-readable scores |
+| `figures/case_distance.csv` | `role`, `target_shape`, `method`, `relation` を分けた machine-readable case distances |
 
-Avoid reading one mixed score across all feature types. `shape_match`,
-`boundary_match`, `interface_match`, `transition_match`, `case_sensitivity`,
-and `data_cost` answer different questions.
+異なる feature type を 1 つの混合 score で読まないでください。
+`shape_match`, `boundary_match`, `interface_match`, `transition_match`,
+`case_sensitivity`, `data_cost` は、それぞれ別の問いに答える指標です。
 
 ## Compare Metrics
 
-| metric | use |
-| --- | --- |
-| `cd` | Cross-section CD / edge position difference. |
-| `chamfer` | Contour point distance. |
-| `sdf` | 2D SDF loss. |
-| `sdf_band` | Boundary-band SDF loss. |
-| `sdf_material` | Per-material SDF loss. |
-| `iou` | Mask overlap. |
-| `profile` | Profile value difference. |
-| `corner` | Local corner-shape difference. |
-| `topology` | Connectivity and large-shape checks. |
+`features.use` は比較用の中間表現を作ります。`metrics.use` はその中間表現から
+loss を計算します。例えば feature `sdf` は SDF field を作り、metric `sdf` は
+2 つの SDF field を比較します。
 
-See [Scoring](Scoring.md) for metric details.
+| metric | required feature | 用途 |
+| --- | --- | --- |
+| `cd` | `contour` | cross-section CD / edge position difference |
+| `chamfer` | `contour` | contour point distance |
+| `sdf` | `sdf` | 2D SDF field loss |
+| `sdf_band` | `sdf` | boundary-band SDF loss |
+| `sdf_material` | `sdf` | per-material SDF loss |
+| `iou` | none | mask overlap |
+| `profile` | `contour` | profile value difference |
+| `corner` | `contour` | local corner-shape difference |
+| `topology` | none | connectivity and large-shape checks |
+
+metric の詳細は [スコアリング](Scoring.md) を参照してください。
 
 ## Compare-Eval Outputs
 
-`compare-eval` compares named evaluation axes on the same cases. The YAML field
-is still `eval.metric_sets`, but each key should be read as an evaluation axis:
+`compare-eval` は、同じ case 群で名前付き evaluation axis を比較します。
+YAML field 名は `eval.metric_sets` ですが、各 key は evaluation axis として読んでください。
 
-| axis | use |
+| axis | 用途 |
 | --- | --- |
-| `height_cd` | Height-wise CD baseline on `[x,z]` or `[y,z]` views. |
-| `shape_distance` | SDF and IoU shape comparison. |
-| `material_distance` | Per-material SDF diagnostic for label-volume targets. |
-| `boundary_band_distance` | Boundary-neighborhood SDF diagnostic. |
+| `height_cd` | `[x,z]` または `[y,z]` view での height-wise CD baseline |
+| `shape_distance` | SDF と IoU による shape comparison |
+| `material_distance` | label-volume target 向けの per-material SDF diagnostic |
+| `boundary_band_distance` | boundary-neighborhood SDF diagnostic |
 
-Read compare-eval outputs in this order:
+compare-eval outputs は次の順で読みます。
 
 1. `axis_agreement.csv`
 2. `figures/cd_vs_sdf_scatter.png`
 3. `figures/comparison_loss_heatmap.png`
 4. `figures/representative_differences/`
 
-`comparison_loss` is the normalized value used for ranking within an evaluation
-axis. `case_scores.csv` contains the raw per-metric columns such as `cd_loss`,
-`sdf_loss`, `iou_loss`, `sdf_material_loss`, and `sdf_band_loss`.
+`comparison_loss` は evaluation axis 内の ranking や optimization に使う normalized value です。
+`case_scores.csv` には `cd_loss`, `sdf_loss`, `iou_loss`, `sdf_material_loss`,
+`sdf_band_loss` などの per-metric raw columns が含まれます。
 
-## Generated Files
+## 生成物
 
-CSV/JSON/NPZ outputs are authoritative. PNG outputs are diagnostics.
-Generated `outputs/`, `site/`, and caches should not be committed.
+CSV/JSON/NPZ outputs が正本です。PNG outputs は診断用です。
+生成された `outputs/`, `site/`, caches はコミットしません。

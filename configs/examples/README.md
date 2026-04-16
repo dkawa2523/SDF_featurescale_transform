@@ -17,6 +17,15 @@ inside a batch index CSV are resolved from the CSV file location.
 The compare examples use `[x,z]` because `cd` is a cross-section edge/width
 metric. Use `[x,y]` for top-view checks when you do not need CD.
 
+In compare YAML, `features.use` builds representations and `metrics.use`
+computes losses from them. Required features:
+
+| metric | required feature |
+| --- | --- |
+| `cd`, `chamfer`, `profile`, `corner` | `contour` |
+| `sdf`, `sdf_band`, `sdf_material` | `sdf` |
+| `iou`, `topology` | none |
+
 The default example comparison axis is intentionally small: `cd`, `sdf`, and `iou`.
 Add `chamfer`, `sdf_material`, or `sdf_band` only when you need diagnostic
 detail. Compare runs write `per_material_sdf.csv` when `sdf_material` is

@@ -8,6 +8,11 @@ view:
   depth_axis: y
 
 eval:
+  # Each metric_sets key is an evaluation axis.
+  # Required compare features by metric:
+  # - cd, chamfer, profile, corner: contour
+  # - sdf, sdf_band, sdf_material: sdf
+  # - iou, topology: no extra feature
   metric_sets:
     height_cd:
       features:

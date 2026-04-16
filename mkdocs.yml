@@ -1,18 +1,19 @@
 site_name: wafergeo
-site_description: Feature transformation and shape comparison tools for wafer geometry
+site_description: ウェハ形状の特徴量化と比較評価のためのツール
 docs_dir: docs
 use_directory_urls: true
 
 nav:
-  - Home: index.md
-  - Quickstart: Quickstart.md
-  - Terminology: Terminology.md
-  - User Manual: UserManual.md
-  - View: View.md
-  - Scoring: Scoring.md
-  - Eval Visualization: EvalVisualization.md
-  - Developer Manual: DeveloperManual.md
-  - Extension Guide: ExtensionGuide.md
+  - ホーム: index.md
+  - クイックスタート: Quickstart.md
+  - 入力データ: InputData.md
+  - 用語: Terminology.md
+  - ユーザーマニュアル: UserManual.md
+  - ビュー: View.md
+  - スコアリング: Scoring.md
+  - Eval 可視化: EvalVisualization.md
+  - 開発者マニュアル: DeveloperManual.md
+  - 拡張ガイド: ExtensionGuide.md
 
 theme:
   name: mkdocs
@@ -23,3 +24,7 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
+
+extra_javascript:
+  - https://unpkg.com/mermaid@10/dist/mermaid.min.js
+  - assets/mermaid-init.js

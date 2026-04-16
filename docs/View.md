@@ -1,7 +1,6 @@
-# View
+# ビュー
 
-`view` selects the 2D observation plane used by compare metrics and shape
-inspection images.
+`view` は、compare metrics と形状確認画像で使う 2D 観察面を選びます。
 
 ```yaml
 view:
@@ -9,19 +8,18 @@ view:
   depth_axis: y
 ```
 
-| key | meaning |
+| key | 意味 |
 | --- | --- |
-| `axes` | The two axes shown in the 2D view. |
-| `depth_axis` | The remaining axis used for projection. |
+| `axes` | 2D view に表示する 2 軸 |
+| `depth_axis` | 投影方向として使う残りの軸 |
 
-`axes` and `depth_axis` must use `x`, `y`, and `z` exactly once.
+`axes` と `depth_axis` は、`x`, `y`, `z` をちょうど 1 回ずつ使う必要があります。
 
-For label volumes, projection keeps the first visible non-void material along
-the depth axis. If no material is visible, the pixel stays void.
+label volume では、depth axis に沿って最初に見える non-void material を投影します。
+material が見えない pixel は void のままです。
 
-Material-aware metrics may use both the outer boundary and internal material
-boundaries.
+material-aware metrics は、外形 boundary と内部 material boundary の両方を使う場合があります。
 
-Use `[x,z]` or `[y,z]` when comparing height-wise CD. A top-view `[x,y]`
-comparison can be useful for projected shape overlap, but it cannot answer
-whether SDF shape-distance is better than height-wise CD.
+height-wise CD を比較する場合は `[x,z]` または `[y,z]` を使います。
+top-view の `[x,y]` は projected shape overlap の確認には有用ですが、
+height-wise CD より SDF shape-distance が良いかどうかを判断する view ではありません。

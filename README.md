@@ -46,8 +46,9 @@ Users edit YAML files and read files under `outputs/`.
 
 ## Docs
 
-The user and developer manuals are under `docs/`. To view them as a local
-MkDocs site:
+The docs under `docs/` are organized for the normal working path:
+quickstart, input data, terminology, user workflows, scoring, visualization,
+and extension. To view them as a local MkDocs site:
 
 ```powershell
 py -3.13 -m pip install -e ".[dev]"
@@ -73,6 +74,10 @@ Target inputs:
 - `npz_label`
 - `vti_label`
 
+For `batch-*` and `*-eval` workflows, YAML stores shared settings and the CSV
+index stores case or pair rows. CSV paths are resolved relative to the CSV file.
+See `docs/UserManual.md` for the exact CSV columns.
+
 `npz_label` is user-facing `[X,Y,Z]`:
 
 ```text
@@ -83,6 +88,11 @@ material_ids: optional integer array
 material_names: optional string array
 void_id: optional integer, required when material id 0 is not present
 ```
+
+`vti_label` reads VTK ImageData `.vti` files with an integer material array
+named `MaterialIds`, `material_id`, or `MaterialId`. VTI spacing and origin are
+read from the file. Set `void_id` in YAML or CSV when material id `0` is not the
+empty/no-material region.
 
 `contour_json` accepts 2D or 3D points. YAML `view.axes` selects the two axes
 used for comparison.
@@ -141,6 +151,17 @@ dominate the ranking by default.
 boundary neighborhood, which makes interface placement errors easier to see.
 Treat `chamfer`, `sdf_material`, `sdf_band`, `profile`, and `corner` as
 diagnostic additions rather than the first comparison axis to try.
+
+In compare YAML, `features.use` and `metrics.use` are different layers.
+`features.use` builds representations; `metrics.use` computes losses from
+those representations. For example, feature `sdf` builds an SDF field, and
+metric `sdf` compares simulation and target SDF fields. Required features are:
+
+| metric | required feature |
+| --- | --- |
+| `cd`, `chamfer`, `profile`, `corner` | `contour` |
+| `sdf`, `sdf_band`, `sdf_material` | `sdf` |
+| `iou`, `topology` | none |
 
 ## Outputs
 
@@ -206,10 +227,10 @@ Use it to compare feature methods for dataset creation. Read it as
 `target_shape x method`: full shape, material-specific shapes, and
 process-delta shape are separate target shapes. Material-interface and
 process-transition relation files are derived from SDF fields; they are not
-extra SDF methods. `feature_scores.csv` separates `shape_match`,
+extra SDF methods. `figures/feature_scores.csv` separates `shape_match`,
 `boundary_match`, `interface_match`, `transition_match`, `case_sensitivity`,
 and `data_cost`.
-`case_distance.csv` and `distance_correlation.csv` show how each explicit
+`figures/case_distance.csv` and `figures/distance_correlation.csv` show how each explicit
 `target_shape` and `method` pair separates cases and whether two outputs carry
 similar information. PNG diagnostics are written under
 `figures/by_target_shape/<target_shape>/<method>/`; relation diagnostics are
